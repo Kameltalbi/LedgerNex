@@ -38,7 +38,7 @@ fun AppNavigation(app: LedgerNexApp, startDestination: String = Screen.Dashboard
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != Screen.Onboarding.route
+    val showBottomBar = currentRoute != null && currentRoute != Screen.Onboarding.route
 
     Scaffold(
         containerColor = BackgroundLight,

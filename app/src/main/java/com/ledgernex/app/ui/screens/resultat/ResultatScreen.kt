@@ -36,8 +36,8 @@ import com.ledgernex.app.LedgerNexApp
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
+import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.ResultatViewModel
-import java.text.NumberFormat
 import java.time.YearMonth
 import java.util.Locale
 
@@ -47,7 +47,8 @@ fun ResultatScreen(app: LedgerNexApp) {
         factory = ResultatViewModel.Factory(app.transactionRepository)
     )
     val state by viewModel.state.collectAsState()
-    val fmt = NumberFormat.getCurrencyInstance(Locale.FRANCE)
+    val currency by app.settingsDataStore.currency.collectAsState(initial = "")
+    fun fmt(amount: Double) = formatCurrency(amount, currency)
 
     if (state.isLoading) {
         Column(
@@ -116,12 +117,12 @@ fun ResultatScreen(app: LedgerNexApp) {
                     color = BluePrimary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                ResultRow("Total Produits", fmt.format(state.totalProduitsMois), GreenAccent)
-                ResultRow("Total Charges", fmt.format(state.totalChargesMois), RedError)
+                ResultRow("Total Produits", fmt(state.totalProduitsMois), GreenAccent)
+                ResultRow("Total Charges", fmt(state.totalChargesMois), RedError)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 ResultRow(
                     "Résultat Net",
-                    fmt.format(state.resultatMois),
+                    fmt(state.resultatMois),
                     if (state.resultatMois >= 0) GreenAccent else RedError,
                     bold = true
                 )
@@ -129,7 +130,7 @@ fun ResultatScreen(app: LedgerNexApp) {
                 // Comparaison mois précédent
                 ResultRow(
                     "Mois précédent",
-                    fmt.format(state.resultatMoisPrecedent),
+                    fmt(state.resultatMoisPrecedent),
                     Color.Gray
                 )
                 val variationText = if (state.variationMois >= 0) "+${String.format(Locale.FRANCE, "%.1f", state.variationMois)} %"
@@ -158,12 +159,12 @@ fun ResultatScreen(app: LedgerNexApp) {
                     color = BluePrimary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                ResultRow("Total Produits", fmt.format(state.totalProduitsAnnuel), GreenAccent)
-                ResultRow("Total Charges", fmt.format(state.totalChargesAnnuel), RedError)
+                ResultRow("Total Produits", fmt(state.totalProduitsAnnuel), GreenAccent)
+                ResultRow("Total Charges", fmt(state.totalChargesAnnuel), RedError)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 ResultRow(
                     "Résultat Annuel",
-                    fmt.format(state.resultatAnnuel),
+                    fmt(state.resultatAnnuel),
                     if (state.resultatAnnuel >= 0) GreenAccent else RedError,
                     bold = true
                 )

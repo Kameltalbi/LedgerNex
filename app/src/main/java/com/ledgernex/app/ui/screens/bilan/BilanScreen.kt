@@ -39,9 +39,8 @@ import com.ledgernex.app.LedgerNexApp
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
+import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.BilanViewModel
-import java.text.NumberFormat
-import java.util.Locale
 
 @Composable
 fun BilanScreen(app: LedgerNexApp) {
@@ -54,7 +53,8 @@ fun BilanScreen(app: LedgerNexApp) {
         )
     )
     val state by viewModel.state.collectAsState()
-    val fmt = NumberFormat.getCurrencyInstance(Locale.FRANCE)
+    val currency by app.settingsDataStore.currency.collectAsState(initial = "")
+    fun fmt(amount: Double) = formatCurrency(amount, currency)
 
     var equityInput by remember { mutableStateOf("") }
 
@@ -115,10 +115,10 @@ fun BilanScreen(app: LedgerNexApp) {
                     color = BluePrimary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                BilanRow("Trésorerie totale", fmt.format(state.tresorerieTotale))
-                BilanRow("Valeur nette immobilisations", fmt.format(state.valeurNetteImmobilisations))
+                BilanRow("Trésorerie totale", fmt(state.tresorerieTotale))
+                BilanRow("Valeur nette immobilisations", fmt(state.valeurNetteImmobilisations))
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                BilanRow("Total Actif", fmt.format(state.totalActif), bold = true, color = BluePrimary)
+                BilanRow("Total Actif", fmt(state.totalActif), bold = true, color = BluePrimary)
             }
         }
 
@@ -138,14 +138,14 @@ fun BilanScreen(app: LedgerNexApp) {
                     color = BluePrimary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                BilanRow("Capitaux propres", fmt.format(state.capitauxPropres))
+                BilanRow("Capitaux propres", fmt(state.capitauxPropres))
                 BilanRow(
                     "Résultat de l'exercice",
-                    fmt.format(state.resultatExercice),
+                    fmt(state.resultatExercice),
                     color = if (state.resultatExercice >= 0) GreenAccent else RedError
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                BilanRow("Total Passif", fmt.format(state.totalPassif), bold = true, color = BluePrimary)
+                BilanRow("Total Passif", fmt(state.totalPassif), bold = true, color = BluePrimary)
             }
         }
 

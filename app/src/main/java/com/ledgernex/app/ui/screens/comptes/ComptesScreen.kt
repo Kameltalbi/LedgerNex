@@ -55,9 +55,8 @@ import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.OnSurfaceSecondary
 import com.ledgernex.app.ui.theme.RedError
 import com.ledgernex.app.ui.viewmodel.AccountWithBalance
+import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.ComptesViewModel
-import java.text.NumberFormat
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,7 +67,7 @@ fun ComptesScreen(app: LedgerNexApp) {
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val fmt = NumberFormat.getCurrencyInstance(Locale.FRANCE)
+    val currency by app.settingsDataStore.currency.collectAsState(initial = "")
 
     // Afficher erreur via snackbar
     LaunchedEffect(state.error) {
@@ -126,7 +125,7 @@ fun ComptesScreen(app: LedgerNexApp) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Solde total", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                         Text(
-                            text = fmt.format(soldeTotal),
+                            text = formatCurrency(soldeTotal, currency),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 24.sp
@@ -138,7 +137,7 @@ fun ComptesScreen(app: LedgerNexApp) {
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.accounts, key = { it.account.id }) { awb ->
-                        AccountCard(awb, fmt) { viewModel.deleteAccount(awb.account) }
+                        AccountCard(awb, currency) { viewModel.deleteAccount(awb.account) }
                     }
                 }
             }
@@ -159,7 +158,7 @@ fun ComptesScreen(app: LedgerNexApp) {
 @Composable
 private fun AccountCard(
     awb: AccountWithBalance,
-    fmt: NumberFormat,
+    currency: String,
     onDelete: () -> Unit
 ) {
     val dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM")
@@ -189,7 +188,7 @@ private fun AccountCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = fmt.format(awb.solde),
+                        text = formatCurrency(awb.solde, currency),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = if (awb.solde >= 0) GreenAccent else RedError
@@ -207,11 +206,11 @@ private fun AccountCard(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Recettes", fontSize = 11.sp, color = OnSurfaceSecondary)
-                    Text(fmt.format(awb.totalRecettes), fontSize = 13.sp, color = GreenAccent, fontWeight = FontWeight.Medium)
+                    Text(formatCurrency(awb.totalRecettes, currency), fontSize = 13.sp, color = GreenAccent, fontWeight = FontWeight.Medium)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Dépenses", fontSize = 11.sp, color = OnSurfaceSecondary)
-                    Text(fmt.format(awb.totalDepenses), fontSize = 13.sp, color = RedError, fontWeight = FontWeight.Medium)
+                    Text(formatCurrency(awb.totalDepenses, currency), fontSize = 13.sp, color = RedError, fontWeight = FontWeight.Medium)
                 }
             }
 
@@ -235,7 +234,7 @@ private fun AccountCard(
                         )
                         val isRecette = tx.type == com.ledgernex.app.data.entity.TransactionType.RECETTE
                         Text(
-                            text = "${if (isRecette) "+" else "-"}${fmt.format(tx.montantTTC)}",
+                            text = "${if (isRecette) "+" else "-"}${formatCurrency(tx.montantTTC, currency)}",
                             fontSize = 12.sp,
                             color = if (isRecette) GreenAccent else RedError,
                             fontWeight = FontWeight.Medium

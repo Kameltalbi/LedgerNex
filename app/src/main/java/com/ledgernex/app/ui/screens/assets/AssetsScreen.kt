@@ -47,8 +47,8 @@ import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.OnSurfaceSecondary
 import com.ledgernex.app.ui.theme.RedError
 import com.ledgernex.app.ui.viewmodel.AssetDetail
+import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.AssetsViewModel
-import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -60,7 +60,7 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
-    val fmt = NumberFormat.getCurrencyInstance(Locale.FRANCE)
+    val currency by app.settingsDataStore.currency.collectAsState(initial = "")
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
     Scaffold(
@@ -110,7 +110,7 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Total valeur nette", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                         Text(
-                            text = fmt.format(state.totalValeurNette),
+                            text = formatCurrency(state.totalValeurNette, currency),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 24.sp
@@ -129,7 +129,7 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(state.assets, key = { it.asset.id }) { detail ->
-                            AssetCard(detail, fmt, dateFmt) {
+                            AssetCard(detail, currency, dateFmt) {
                                 viewModel.deleteAsset(detail.asset)
                             }
                         }
@@ -153,7 +153,7 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
 @Composable
 private fun AssetCard(
     detail: AssetDetail,
-    fmt: NumberFormat,
+    currency: String,
     dateFmt: DateTimeFormatter,
     onDelete: () -> Unit
 ) {
@@ -193,16 +193,16 @@ private fun AssetCard(
             ) {
                 Column {
                     Text("Montant", fontSize = 11.sp, color = OnSurfaceSecondary)
-                    Text(fmt.format(detail.asset.montantTTC), fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                    Text(formatCurrency(detail.asset.montantTTC, currency), fontWeight = FontWeight.Medium, fontSize = 14.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Amort. annuel", fontSize = 11.sp, color = OnSurfaceSecondary)
-                    Text(fmt.format(detail.amortissementAnnuel), fontWeight = FontWeight.Medium, fontSize = 14.sp, color = RedError)
+                    Text(formatCurrency(detail.amortissementAnnuel, currency), fontWeight = FontWeight.Medium, fontSize = 14.sp, color = RedError)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("VNC", fontSize = 11.sp, color = OnSurfaceSecondary)
                     Text(
-                        fmt.format(detail.valeurNetteComptable),
+                        formatCurrency(detail.valeurNetteComptable, currency),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = GreenAccent

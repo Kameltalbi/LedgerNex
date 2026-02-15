@@ -1,8 +1,13 @@
 package com.ledgernex.app.ui.screens.transactions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,13 +17,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,10 +35,13 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,19 +56,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ledgernex.app.LedgerNexApp
+import com.ledgernex.app.data.datastore.SettingsDataStore
+import com.ledgernex.app.data.entity.CompanyAccount
 import com.ledgernex.app.data.entity.Transaction
 import com.ledgernex.app.data.entity.TransactionType
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
+import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.TransactionsViewModel
-import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -70,8 +86,8 @@ fun TransactionsScreen(app: LedgerNexApp) {
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    val currency by app.settingsDataStore.currency.collectAsState(initial = "")
 
-    val fmt = NumberFormat.getCurrencyInstance(Locale.FRANCE)
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
     Scaffold(
@@ -153,7 +169,7 @@ fun TransactionsScreen(app: LedgerNexApp) {
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.transactions, key = { it.id }) { tx ->
-                        TransactionCard(tx, fmt, dateFmt) {
+                        TransactionCard(tx, currency, dateFmt) {
                             viewModel.deleteTransaction(tx)
                         }
                     }
@@ -164,7 +180,12 @@ fun TransactionsScreen(app: LedgerNexApp) {
 
     // Dialogue ajout transaction
     if (showAddDialog) {
+        val categories by app.settingsDataStore.categories.collectAsState(initial = emptySet())
+        val accounts by app.accountRepository.getAll().collectAsState(initial = emptyList())
+
         AddTransactionDialog(
+            categories = categories,
+            accounts = accounts,
             onDismiss = { showAddDialog = false },
             onConfirm = { type, date, libelle, objet, montant, categorie, accountId ->
                 viewModel.addTransaction(type, date, libelle, objet, montant, categorie, accountId)
@@ -177,7 +198,7 @@ fun TransactionsScreen(app: LedgerNexApp) {
 @Composable
 private fun TransactionCard(
     tx: Transaction,
-    fmt: NumberFormat,
+    currency: String,
     dateFmt: DateTimeFormatter,
     onDelete: () -> Unit
 ) {
@@ -214,7 +235,7 @@ private fun TransactionCard(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "$sign${fmt.format(tx.montantTTC)}",
+                    text = "$sign${formatCurrency(tx.montantTTC, currency)}",
                     fontWeight = FontWeight.Bold,
                     color = color,
                     fontSize = 16.sp
@@ -231,9 +252,11 @@ private fun TransactionCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun AddTransactionDialog(
+    categories: Set<String>,
+    accounts: List<CompanyAccount>,
     onDismiss: () -> Unit,
     onConfirm: (TransactionType, LocalDate, String, String, Double, String, Long) -> Unit
 ) {
@@ -242,81 +265,189 @@ private fun AddTransactionDialog(
     var objet by remember { mutableStateOf("") }
     var montant by remember { mutableStateOf("") }
     var categorie by remember { mutableStateOf("") }
-    var accountIdText by remember { mutableStateOf("1") }
-    var typeExpanded by remember { mutableStateOf(false) }
+    var selectedAccountId by remember { mutableStateOf<Long?>(null) }
+    var accountExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nouvelle transaction") },
+        title = {
+            Text(
+                "Nouvelle transaction",
+                fontWeight = FontWeight.Bold,
+                color = BluePrimary
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Type selector
-                ExposedDropdownMenuBox(
-                    expanded = typeExpanded,
-                    onExpandedChange = { typeExpanded = !typeExpanded }
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // --- Toggle Recette / Dépense ---
+                Text("Type", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = type.name,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Type") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = typeExpanded,
-                        onDismissRequest = { typeExpanded = false }
-                    ) {
-                        TransactionType.values().forEach { t ->
-                            DropdownMenuItem(
-                                text = { Text(t.name) },
-                                onClick = {
-                                    type = t
-                                    typeExpanded = false
-                                }
+                    // Bouton Dépense
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (type == TransactionType.DEPENSE) RedError else Color.Transparent
                             )
-                        }
+                            .border(
+                                width = 1.dp,
+                                color = if (type == TransactionType.DEPENSE) RedError else Color.Gray,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clickable { type = TransactionType.DEPENSE },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "▼ Dépense",
+                            color = if (type == TransactionType.DEPENSE) Color.White else Color.Gray,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                    }
+                    // Bouton Recette
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (type == TransactionType.RECETTE) GreenAccent else Color.Transparent
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (type == TransactionType.RECETTE) GreenAccent else Color.Gray,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clickable { type = TransactionType.RECETTE },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "▲ Recette",
+                            color = if (type == TransactionType.RECETTE) Color.White else Color.Gray,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
                     }
                 }
 
+                // --- Libellé ---
                 OutlinedTextField(
                     value = libelle,
                     onValueChange = { libelle = it },
                     label = { Text("Libellé") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
+
+                // --- Objet ---
                 OutlinedTextField(
                     value = objet,
                     onValueChange = { objet = it },
-                    label = { Text("Objet") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Objet / Description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
+
+                // --- Montant ---
                 OutlinedTextField(
                     value = montant,
                     onValueChange = { montant = it },
                     label = { Text("Montant TTC") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
+
+                // --- Catégorie (chips) ---
+                Text("Catégorie", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                if (categories.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        categories.sorted().forEach { cat ->
+                            FilterChip(
+                                selected = categorie == cat,
+                                onClick = { categorie = cat },
+                                label = { Text(cat, fontSize = 12.sp) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = BluePrimary,
+                                    selectedLabelColor = Color.White
+                                )
+                            )
+                        }
+                    }
+                } else {
+                    Text("Aucune catégorie définie", fontSize = 12.sp, color = Color.Gray)
+                }
                 OutlinedTextField(
                     value = categorie,
                     onValueChange = { categorie = it },
-                    label = { Text("Catégorie") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Ou saisir une catégorie") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
-                OutlinedTextField(
-                    value = accountIdText,
-                    onValueChange = { accountIdText = it },
-                    label = { Text("ID Compte") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                // --- Compte ---
+                if (accounts.isNotEmpty()) {
+                    ExposedDropdownMenuBox(
+                        expanded = accountExpanded,
+                        onExpandedChange = { accountExpanded = !accountExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = accounts.firstOrNull { it.id == selectedAccountId }?.nom ?: "Sélectionner un compte",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Compte") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = accountExpanded,
+                            onDismissRequest = { accountExpanded = false }
+                        ) {
+                            accounts.forEach { account ->
+                                DropdownMenuItem(
+                                    text = { Text(account.nom) },
+                                    onClick = {
+                                        selectedAccountId = account.id
+                                        accountExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text("Aucun compte créé. Créez un compte d'abord.", fontSize = 12.sp, color = RedError)
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val m = montant.toDoubleOrNull() ?: return@TextButton
-                val accId = accountIdText.toLongOrNull() ?: return@TextButton
-                onConfirm(type, LocalDate.now(), libelle, objet, m, categorie, accId)
-            }) {
+            Button(
+                onClick = {
+                    val m = montant.toDoubleOrNull() ?: return@Button
+                    val accId = selectedAccountId ?: accounts.firstOrNull()?.id ?: return@Button
+                    if (libelle.isBlank() || categorie.isBlank()) return@Button
+                    onConfirm(type, LocalDate.now(), libelle, objet, m, categorie, accId)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (type == TransactionType.RECETTE) GreenAccent else RedError
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Text("Ajouter")
             }
         },

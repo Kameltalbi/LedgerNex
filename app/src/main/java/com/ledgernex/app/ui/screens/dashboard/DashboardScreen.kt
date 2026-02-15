@@ -46,9 +46,8 @@ import com.ledgernex.app.ui.navigation.Screen
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
+import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.DashboardViewModel
-import java.text.NumberFormat
-import java.util.Locale
 
 @Composable
 fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
@@ -61,6 +60,7 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
         )
     )
     val state by viewModel.state.collectAsState()
+    val currency by app.settingsDataStore.currency.collectAsState(initial = "")
 
     if (state.isLoading) {
         Column(
@@ -73,7 +73,7 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
         return
     }
 
-    val fmt = NumberFormat.getCurrencyInstance(Locale.FRANCE)
+    fun fmt(amount: Double) = formatCurrency(amount, currency)
 
     Column(
         modifier = Modifier
@@ -107,13 +107,13 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
 
         // Alertes
         if (state.resultatMois < 0) {
-            AlertBanner(text = "⚠ Résultat du mois négatif : ${fmt.format(state.resultatMois)}")
+            AlertBanner(text = "⚠ Résultat du mois négatif : ${fmt(state.resultatMois)}")
         }
         if (state.soldeTotalEntreprise < 500 && state.soldeTotalEntreprise > 0) {
-            AlertBanner(text = "⚠ Trésorerie faible : ${fmt.format(state.soldeTotalEntreprise)}")
+            AlertBanner(text = "⚠ Trésorerie faible : ${fmt(state.soldeTotalEntreprise)}")
         }
         if (state.soldeTotalEntreprise < 0) {
-            AlertBanner(text = "🔴 Trésorerie négative : ${fmt.format(state.soldeTotalEntreprise)}")
+            AlertBanner(text = "🔴 Trésorerie négative : ${fmt(state.soldeTotalEntreprise)}")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -121,7 +121,7 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
         // Solde total
         DashboardCard(
             title = "Solde total entreprise",
-            value = fmt.format(state.soldeTotalEntreprise),
+            value = fmt(state.soldeTotalEntreprise),
             valueColor = if (state.soldeTotalEntreprise >= 0) GreenAccent else RedError
         )
 
@@ -135,13 +135,13 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
             DashboardCard(
                 modifier = Modifier.weight(1f),
                 title = "Résultat du mois",
-                value = fmt.format(state.resultatMois),
+                value = fmt(state.resultatMois),
                 valueColor = if (state.resultatMois >= 0) GreenAccent else RedError
             )
             DashboardCard(
                 modifier = Modifier.weight(1f),
                 title = "Résultat annuel",
-                value = fmt.format(state.resultatAnnuel),
+                value = fmt(state.resultatAnnuel),
                 valueColor = if (state.resultatAnnuel >= 0) GreenAccent else RedError
             )
         }
@@ -160,7 +160,7 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
                 Text(text = "Valeur nette immobilisations", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = fmt.format(state.valeurImmobilisations),
+                    text = fmt(state.valeurImmobilisations),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = BluePrimary,
@@ -190,7 +190,7 @@ fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Total Actif", color = Color.Gray)
-                    Text(fmt.format(state.totalActif), fontWeight = FontWeight.Medium)
+                    Text(fmt(state.totalActif), fontWeight = FontWeight.Medium)
                 }
             }
         }

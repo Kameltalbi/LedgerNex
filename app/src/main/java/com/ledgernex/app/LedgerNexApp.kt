@@ -1,6 +1,7 @@
 package com.ledgernex.app
 
 import android.app.Application
+import android.util.Log
 import com.ledgernex.app.data.database.LedgerNexDatabase
 import com.ledgernex.app.data.datastore.SettingsDataStore
 import com.ledgernex.app.data.repository.AccountRepositoryImpl
@@ -12,6 +13,9 @@ import com.ledgernex.app.domain.repository.AssetRepository
 import com.ledgernex.app.domain.repository.RecurrenceRepository
 import com.ledgernex.app.domain.repository.TransactionRepository
 import com.ledgernex.app.manager.RecurrenceManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Application class – point d'entrée pour l'initialisation des dépendances.

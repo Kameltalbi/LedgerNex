@@ -20,10 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -41,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,12 +70,20 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
     val currency by dataStore.currency.collectAsState(initial = "")
     val language by dataStore.language.collectAsState(initial = "fr")
     val categories by dataStore.categories.collectAsState(initial = emptySet())
+    val onboardingDone by dataStore.onboardingDone.collectAsState(initial = false)
 
     var equityInput by remember { mutableStateOf("") }
     var newCategoryInput by remember { mutableStateOf("") }
     var languageExpanded by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var editingCategory by remember { mutableStateOf<String?>(null) }
+    var editCategoryInput by remember { mutableStateOf("") }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var customCurrencyInput by remember { mutableStateOf("") }
+    var showCustomCurrency by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -366,7 +374,10 @@ Row(
                 ) {
                     categories.sorted().forEach { cat ->
                         AssistChip(
-                            onClick = {},
+                            onClick = {
+                                editingCategory = cat
+                                editCategoryInput = cat
+                            },
                             label = { Text(cat, fontSize = 13.sp) },
                             trailingIcon = {
                                 IconButton(
@@ -397,17 +408,25 @@ Row(
                         onValueChange = { newCategoryInput = it },
                         label = { Text("Nouvelle catégorie") },
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
-                    IconButton(
+                    Button(
                         onClick = {
-                            if (newCategoryInput.isNotBlank()) {
-                                scope.launch { dataStore.addCategory(newCategoryInput.trim()) }
+                            val categoryToAdd = newCategoryInput.trim()
+                            if (categoryToAdd.isNotBlank()) {
+                                scope.launch {
+                                    dataStore.addCategory(categoryToAdd)
+                                }
                                 newCategoryInput = ""
                             }
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter", tint = BluePrimary)
+                        Icon(Icons.Default.Add, contentDescription = "Ajouter")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ajouter")
                     }
                 }
             }
@@ -426,6 +445,39 @@ Row(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    // Dialog modifier catégorie
+    if (editingCategory != null) {
+        AlertDialog(
+            onDismissRequest = { editingCategory = null },
+            title = { Text("Modifier catégorie") },
+            text = {
+                OutlinedTextField(
+                    value = editCategoryInput,
+                    onValueChange = { editCategoryInput = it },
+                    label = { Text("Nouveau nom") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val newName = editCategoryInput.trim()
+                    if (newName.isNotBlank() && newName != editingCategory) {
+                        scope.launch {
+                            dataStore.updateCategory(editingCategory!!, newName)
+                        }
+                    }
+                    editingCategory = null
+                }) {
+                    Text("Enregistrer", color = BluePrimary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingCategory = null }) { Text("Annuler") }
+            }
+        )
     }
 
     if (showResetDialog) {

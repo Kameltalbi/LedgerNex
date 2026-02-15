@@ -25,6 +25,8 @@ sealed class Screen(
     object Onboarding : Screen("onboarding", "Bienvenue", Icons.Default.Settings)
 
     companion object {
-        val bottomNavItems = listOf(Dashboard, Transactions, Resultat, Bilan, Comptes)
+        val bottomNavItems: List<Screen> by lazy {
+            listOf(Dashboard, Transactions, Resultat, Bilan, Comptes)
+        }
     }
 }
