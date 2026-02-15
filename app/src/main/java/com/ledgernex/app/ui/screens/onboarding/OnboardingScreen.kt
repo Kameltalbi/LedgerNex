@@ -1,5 +1,7 @@
 package com.ledgernex.app.ui.screens.onboarding
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,6 +16,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -143,89 +152,92 @@ fun OnboardingScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (!showCustomInput) {
-            ExposedDropdownMenuBox(
-                expanded = currencyExpanded,
-                onExpandedChange = { 
-                    currencyExpanded = it
-                    if (!it) searchQuery = ""
-                }
-            ) {
+            Column {
+                // Champ de sélection avec recherche intégrée
                 OutlinedTextField(
-                    value = selectedCurrency,
-                    onValueChange = {},
-                    readOnly = true,
+                    value = if (currencyExpanded) searchQuery else selectedCurrency,
+                    onValueChange = { 
+                        searchQuery = it
+                        if (!currencyExpanded) currencyExpanded = true
+                    },
                     label = { Text(when (selectedLanguage) {
                         "en" -> "Currency"
                         "ar" -> "العملة"
                         else -> "Devise"
                     }) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                ExposedDropdownMenu(
-                    expanded = currencyExpanded,
-                    onDismissRequest = { 
-                        currencyExpanded = false
-                        searchQuery = ""
+                    placeholder = { Text(when (selectedLanguage) {
+                        "en" -> "Search by country or currency..."
+                        "ar" -> "ابحث عن بلد أو عملة..."
+                        else -> "Rechercher par pays ou devise..."
+                    }) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    trailingIcon = {
+                        IconButton(onClick = { currencyExpanded = !currencyExpanded }) {
+                            Icon(
+                                imageVector = if (currencyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null
+                            )
+                        }
                     }
-                ) {
-                    // Champ de recherche
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text(when (selectedLanguage) {
-                            "en" -> "Search by country or currency..."
-                            "ar" -> "ابحث عن بلد أو عملة..."
-                            else -> "Rechercher par pays ou devise..."
-                        }) },
+                )
+                
+                // Liste déroulante
+                if (currencyExpanded && filteredCurrencies.isNotEmpty()) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        singleLine = true,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    
-                    // Liste filtrée
-                    filteredCurrencies.forEach { currency ->
-                        DropdownMenuItem(
-                            text = { 
-                                Column {
-                                    Text("${currency.code} - ${currency.name}")
-                                    Text(
-                                        text = currency.countries.take(3).joinToString(", "),
-                                        fontSize = 12.sp,
-                                        color = Color.Gray
-                                    )
+                            .height(300.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            filteredCurrencies.forEach { currency ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedCurrency = currency.code
+                                            currencyExpanded = false
+                                            searchQuery = ""
+                                        }
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${currency.code} - ${currency.name}",
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = currency.countries.take(3).joinToString(", "),
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
                                 }
-                            },
-                            onClick = {
-                                selectedCurrency = currency.code
-                                currencyExpanded = false
-                                searchQuery = ""
                             }
-                        )
-                    }
-                    
-                    if (filteredCurrencies.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text(when (selectedLanguage) {
-                                "en" -> "No results found"
-                                "ar" -> "لا توجد نتائج"
-                                else -> "Aucun résultat"
-                            }) },
-                            onClick = {}
-                        )
-                    }
-                    
-                    DropdownMenuItem(
-                        text = { Text("✏️ Autre devise...") },
-                        onClick = {
-                            showCustomInput = true
-                            currencyExpanded = false
-                            searchQuery = ""
+                            
+                            // Option devise personnalisée
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showCustomInput = true
+                                        currencyExpanded = false
+                                        searchQuery = ""
+                                    }
+                                    .padding(16.dp)
+                                    .background(Color.LightGray.copy(alpha = 0.1f)),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("✏️ Autre devise...", fontWeight = FontWeight.Medium)
+                            }
                         }
-                    )
+                    }
                 }
             }
         } else {
