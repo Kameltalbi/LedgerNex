@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ledgernex.app.data.entity.AccountType
 import com.ledgernex.app.data.entity.CompanyAccount
+import com.ledgernex.app.data.entity.Transaction
 import com.ledgernex.app.domain.repository.AccountRepository
+import com.ledgernex.app.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -13,7 +15,10 @@ import kotlinx.coroutines.launch
 
 data class AccountWithBalance(
     val account: CompanyAccount,
-    val solde: Double
+    val solde: Double,
+    val totalRecettes: Double = 0.0,
+    val totalDepenses: Double = 0.0,
+    val recentTransactions: List<Transaction> = emptyList()
 )
 
 data class ComptesState(
@@ -23,7 +28,8 @@ data class ComptesState(
 )
 
 class ComptesViewModel(
-    private val accountRepo: AccountRepository
+    private val accountRepo: AccountRepository,
+    private val transactionRepo: TransactionRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ComptesState())
@@ -78,7 +84,10 @@ class ComptesViewModel(
                 val withBalances = accounts.map { account ->
                     AccountWithBalance(
                         account = account,
-                        solde = accountRepo.getAccountBalance(account.id)
+                        solde = accountRepo.getAccountBalance(account.id),
+                        totalRecettes = transactionRepo.getTotalRecettesForAccount(account.id),
+                        totalDepenses = transactionRepo.getTotalDepensesForAccount(account.id),
+                        recentTransactions = transactionRepo.getRecentByAccount(account.id, 5)
                     )
                 }
                 _state.value = ComptesState(accounts = withBalances, isLoading = false)
@@ -87,11 +96,12 @@ class ComptesViewModel(
     }
 
     class Factory(
-        private val accountRepo: AccountRepository
+        private val accountRepo: AccountRepository,
+        private val transactionRepo: TransactionRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ComptesViewModel(accountRepo) as T
+            return ComptesViewModel(accountRepo, transactionRepo) as T
         }
     }
 }

@@ -19,9 +19,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ledgernex.app.LedgerNexApp
+import com.ledgernex.app.ui.screens.assets.AssetsScreen
 import com.ledgernex.app.ui.screens.bilan.BilanScreen
 import com.ledgernex.app.ui.screens.comptes.ComptesScreen
 import com.ledgernex.app.ui.screens.dashboard.DashboardScreen
+import com.ledgernex.app.ui.screens.parametres.ParametresScreen
 import com.ledgernex.app.ui.screens.resultat.ResultatScreen
 import com.ledgernex.app.ui.screens.transactions.TransactionsScreen
 import com.ledgernex.app.ui.theme.BluePrimary
@@ -75,11 +77,13 @@ fun AppNavigation(app: LedgerNexApp) {
             startDestination = Screen.Dashboard.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Dashboard.route) { DashboardScreen(app) }
+            composable(Screen.Dashboard.route) { DashboardScreen(app, navController) }
             composable(Screen.Transactions.route) { TransactionsScreen(app) }
             composable(Screen.Resultat.route) { ResultatScreen(app) }
             composable(Screen.Bilan.route) { BilanScreen(app) }
             composable(Screen.Comptes.route) { ComptesScreen(app) }
+            composable(Screen.Immobilisations.route) { AssetsScreen(app) }
+            composable(Screen.Parametres.route) { ParametresScreen(app) }
         }
     }
 }

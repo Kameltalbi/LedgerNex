@@ -5,6 +5,8 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -18,6 +20,8 @@ sealed class Screen(
     object Resultat : Screen("resultat", "Résultat", Icons.Default.Assessment)
     object Bilan : Screen("bilan", "Bilan", Icons.Default.AccountBalance)
     object Comptes : Screen("comptes", "Comptes", Icons.Default.Wallet)
+    object Immobilisations : Screen("immobilisations", "Immobilisations", Icons.Default.Business)
+    object Parametres : Screen("parametres", "Paramètres", Icons.Default.Settings)
 
     companion object {
         val bottomNavItems = listOf(Dashboard, Transactions, Resultat, Bilan, Comptes)

@@ -63,7 +63,7 @@ import java.util.Locale
 @Composable
 fun ComptesScreen(app: LedgerNexApp) {
     val viewModel: ComptesViewModel = viewModel(
-        factory = ComptesViewModel.Factory(app.accountRepository)
+        factory = ComptesViewModel.Factory(app.accountRepository, app.transactionRepository)
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -162,39 +162,85 @@ private fun AccountCard(
     fmt: NumberFormat,
     onDelete: () -> Unit
 ) {
+    val dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM")
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = awb.account.nom,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
-                )
-                Text(
-                    text = "${awb.account.type.name} • ${if (awb.account.actif) "Actif" else "Inactif"}",
-                    fontSize = 12.sp,
-                    color = OnSurfaceSecondary
-                )
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = awb.account.nom,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = "${awb.account.type.name} • ${if (awb.account.actif) "Actif" else "Inactif"}",
+                        fontSize = 12.sp,
+                        color = OnSurfaceSecondary
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = fmt.format(awb.solde),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = if (awb.solde >= 0) GreenAccent else RedError
+                    )
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = Color.Gray)
+                    }
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = fmt.format(awb.solde),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = if (awb.solde >= 0) GreenAccent else RedError
-                )
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = Color.Gray)
+
+            // Total recettes / dépenses
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Recettes", fontSize = 11.sp, color = OnSurfaceSecondary)
+                    Text(fmt.format(awb.totalRecettes), fontSize = 13.sp, color = GreenAccent, fontWeight = FontWeight.Medium)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Dépenses", fontSize = 11.sp, color = OnSurfaceSecondary)
+                    Text(fmt.format(awb.totalDepenses), fontSize = 13.sp, color = RedError, fontWeight = FontWeight.Medium)
+                }
+            }
+
+            // Dernières transactions
+            if (awb.recentTransactions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Derniers mouvements", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = OnSurfaceSecondary)
+                awb.recentTransactions.forEach { tx ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${java.time.LocalDate.ofEpochDay(tx.dateEpoch).format(dateFmt)} ${tx.libelle}",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1
+                        )
+                        val isRecette = tx.type == com.ledgernex.app.data.entity.TransactionType.RECETTE
+                        Text(
+                            text = "${if (isRecette) "+" else "-"}${fmt.format(tx.montantTTC)}",
+                            fontSize = 12.sp,
+                            color = if (isRecette) GreenAccent else RedError,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }

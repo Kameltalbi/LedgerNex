@@ -125,6 +125,20 @@ fun ResultatScreen(app: LedgerNexApp) {
                     if (state.resultatMois >= 0) GreenAccent else RedError,
                     bold = true
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Comparaison mois précédent
+                ResultRow(
+                    "Mois précédent",
+                    fmt.format(state.resultatMoisPrecedent),
+                    Color.Gray
+                )
+                val variationText = if (state.variationMois >= 0) "+${String.format(Locale.FRANCE, "%.1f", state.variationMois)} %"
+                    else "${String.format(Locale.FRANCE, "%.1f", state.variationMois)} %"
+                ResultRow(
+                    "Variation",
+                    variationText,
+                    if (state.variationMois >= 0) GreenAccent else RedError
+                )
             }
         }
 

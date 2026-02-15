@@ -106,6 +106,49 @@ interface TransactionDao {
     """)
     suspend fun countByRecurrenceAndDate(recurrenceId: Long, dateEpoch: Long): Int
 
+    /** Filtrer par date + compte */
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE dateEpoch BETWEEN :startEpoch AND :endEpoch AND accountId = :accountId
+        ORDER BY dateEpoch DESC
+    """)
+    fun getByDateRangeAndAccount(startEpoch: Long, endEpoch: Long, accountId: Long): Flow<List<Transaction>>
+
+    /** Filtrer par date + catégorie */
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE dateEpoch BETWEEN :startEpoch AND :endEpoch AND categorie = :categorie
+        ORDER BY dateEpoch DESC
+    """)
+    fun getByDateRangeAndCategory(startEpoch: Long, endEpoch: Long, categorie: String): Flow<List<Transaction>>
+
+    /** Filtrer par date + compte + catégorie */
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE dateEpoch BETWEEN :startEpoch AND :endEpoch 
+          AND accountId = :accountId AND categorie = :categorie
+        ORDER BY dateEpoch DESC
+    """)
+    fun getByDateRangeAccountAndCategory(startEpoch: Long, endEpoch: Long, accountId: Long, categorie: String): Flow<List<Transaction>>
+
+    /** Total recettes pour un compte */
+    @Query("""
+        SELECT IFNULL(SUM(montantTTC), 0) FROM transactions 
+        WHERE type = 'RECETTE' AND accountId = :accountId
+    """)
+    suspend fun getTotalRecettesForAccount(accountId: Long): Double
+
+    /** Total dépenses pour un compte */
+    @Query("""
+        SELECT IFNULL(SUM(montantTTC), 0) FROM transactions 
+        WHERE type = 'DEPENSE' AND accountId = :accountId
+    """)
+    suspend fun getTotalDepensesForAccount(accountId: Long): Double
+
+    /** Dernières transactions d'un compte */
+    @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY dateEpoch DESC LIMIT :limit")
+    suspend fun getRecentByAccount(accountId: Long, limit: Int = 10): List<Transaction>
+
     /** Résultat mensuel pour chaque mois d'une année (pour graphique dashboard) */
     @Query("""
         SELECT 

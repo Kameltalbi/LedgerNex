@@ -1,7 +1,10 @@
 package com.ledgernex.app.ui.screens.dashboard
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,12 +12,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.ledgernex.app.LedgerNexApp
+import com.ledgernex.app.ui.navigation.Screen
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
@@ -39,7 +51,7 @@ import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
-fun DashboardScreen(app: LedgerNexApp) {
+fun DashboardScreen(app: LedgerNexApp, navController: NavController) {
     val viewModel: DashboardViewModel = viewModel(
         factory = DashboardViewModel.Factory(
             app.accountRepository,
@@ -69,14 +81,42 @@ fun DashboardScreen(app: LedgerNexApp) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text(
-            text = "Dashboard",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = BluePrimary
-        )
+        // Header avec boutons navigation
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Dashboard",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = BluePrimary
+            )
+            Row {
+                IconButton(onClick = { navController.navigate(Screen.Immobilisations.route) }) {
+                    Icon(Icons.Default.Business, contentDescription = "Immobilisations", tint = BluePrimary)
+                }
+                IconButton(onClick = { navController.navigate(Screen.Parametres.route) }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Paramètres", tint = BluePrimary)
+                }
+            }
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Alertes
+        if (state.resultatMois < 0) {
+            AlertBanner(text = "⚠ Résultat du mois négatif : ${fmt.format(state.resultatMois)}")
+        }
+        if (state.soldeTotalEntreprise < 500 && state.soldeTotalEntreprise > 0) {
+            AlertBanner(text = "⚠ Trésorerie faible : ${fmt.format(state.soldeTotalEntreprise)}")
+        }
+        if (state.soldeTotalEntreprise < 0) {
+            AlertBanner(text = "🔴 Trésorerie négative : ${fmt.format(state.soldeTotalEntreprise)}")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Solde total
         DashboardCard(
@@ -108,12 +148,27 @@ fun DashboardScreen(app: LedgerNexApp) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Immobilisations
-        DashboardCard(
-            title = "Valeur nette immobilisations",
-            value = fmt.format(state.valeurImmobilisations),
-            valueColor = BluePrimary
-        )
+        // Immobilisations (clickable → écran dédié)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { navController.navigate(Screen.Immobilisations.route) },
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "Valeur nette immobilisations", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = fmt.format(state.valeurImmobilisations),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = BluePrimary,
+                    fontSize = 20.sp
+                )
+                Text(text = "Voir détail →", fontSize = 12.sp, color = BluePrimary)
+            }
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -241,6 +296,28 @@ private fun SimpleLineChart(
                 radius = 5f,
                 center = Offset(x, y)
             )
+        }
+    }
+}
+
+@Composable
+private fun AlertBanner(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(RedError.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = RedError,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.padding(start = 8.dp))
+            Text(text = text, color = RedError, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }
     }
 }

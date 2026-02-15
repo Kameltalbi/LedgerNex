@@ -21,4 +21,10 @@ interface TransactionRepository {
     suspend fun deleteAllByRecurrence(recurrenceId: Long)
     suspend fun deleteFutureUnmodifiedByRecurrence(recurrenceId: Long, fromEpoch: Long)
     suspend fun countByRecurrenceAndDate(recurrenceId: Long, dateEpoch: Long): Int
+    fun getByDateRangeAndAccount(startEpoch: Long, endEpoch: Long, accountId: Long): Flow<List<Transaction>>
+    fun getByDateRangeAndCategory(startEpoch: Long, endEpoch: Long, categorie: String): Flow<List<Transaction>>
+    fun getByDateRangeAccountAndCategory(startEpoch: Long, endEpoch: Long, accountId: Long, categorie: String): Flow<List<Transaction>>
+    suspend fun getTotalRecettesForAccount(accountId: Long): Double
+    suspend fun getTotalDepensesForAccount(accountId: Long): Double
+    suspend fun getRecentByAccount(accountId: Long, limit: Int = 10): List<Transaction>
 }

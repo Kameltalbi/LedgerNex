@@ -17,6 +17,9 @@ data class ResultatState(
     val totalProduitsMois: Double = 0.0,
     val totalChargesMois: Double = 0.0,
     val resultatMois: Double = 0.0,
+    // Comparaison mois précédent
+    val resultatMoisPrecedent: Double = 0.0,
+    val variationMois: Double = 0.0,
     // Vue annuelle
     val totalProduitsAnnuel: Double = 0.0,
     val totalChargesAnnuel: Double = 0.0,
@@ -55,6 +58,13 @@ class ResultatViewModel(
             val chargesMois = transactionRepo.getTotalCharges(monthStart, monthEnd)
             val resultatMois = produitsMois - chargesMois
 
+            // Mois précédent (comparaison)
+            val prevYm = YearMonth.of(year, month).minusMonths(1)
+            val prevStart = prevYm.atDay(1).toEpochDay()
+            val prevEnd = prevYm.atEndOfMonth().toEpochDay()
+            val resultatPrev = transactionRepo.getResultForPeriod(prevStart, prevEnd)
+            val variation = if (resultatPrev != 0.0) ((resultatMois - resultatPrev) / kotlin.math.abs(resultatPrev)) * 100 else 0.0
+
             // Annuel
             val yearStart = LocalDate.of(year, 1, 1).toEpochDay()
             val yearEnd = LocalDate.of(year, 12, 31).toEpochDay()
@@ -69,6 +79,8 @@ class ResultatViewModel(
                 totalProduitsMois = produitsMois,
                 totalChargesMois = chargesMois,
                 resultatMois = resultatMois,
+                resultatMoisPrecedent = resultatPrev,
+                variationMois = variation,
                 totalProduitsAnnuel = produitsAnnuel,
                 totalChargesAnnuel = chargesAnnuel,
                 resultatAnnuel = resultatAnnuel,

@@ -18,6 +18,8 @@ data class TransactionsState(
     val selectedYear: Int = LocalDate.now().year,
     val selectedMonth: Int = LocalDate.now().monthValue,
     val searchQuery: String = "",
+    val filterAccountId: Long? = null,
+    val filterCategorie: String? = null,
     val isLoading: Boolean = true
 )
 
@@ -34,6 +36,16 @@ class TransactionsViewModel(
 
     fun setMonth(year: Int, month: Int) {
         _state.value = _state.value.copy(selectedYear = year, selectedMonth = month, searchQuery = "")
+        loadTransactions()
+    }
+
+    fun setFilterAccount(accountId: Long?) {
+        _state.value = _state.value.copy(filterAccountId = accountId)
+        loadTransactions()
+    }
+
+    fun setFilterCategorie(categorie: String?) {
+        _state.value = _state.value.copy(filterCategorie = categorie)
         loadTransactions()
     }
 
@@ -95,8 +107,21 @@ class TransactionsViewModel(
             val month = _state.value.selectedMonth
             val startEpoch = LocalDate.of(year, month, 1).toEpochDay()
             val endEpoch = YearMonth.of(year, month).atEndOfMonth().toEpochDay()
+            val accountId = _state.value.filterAccountId
+            val categorie = _state.value.filterCategorie
 
-            transactionRepo.getByDateRange(startEpoch, endEpoch).collectLatest { list ->
+            val flow = when {
+                accountId != null && categorie != null ->
+                    transactionRepo.getByDateRangeAccountAndCategory(startEpoch, endEpoch, accountId, categorie)
+                accountId != null ->
+                    transactionRepo.getByDateRangeAndAccount(startEpoch, endEpoch, accountId)
+                categorie != null ->
+                    transactionRepo.getByDateRangeAndCategory(startEpoch, endEpoch, categorie)
+                else ->
+                    transactionRepo.getByDateRange(startEpoch, endEpoch)
+            }
+
+            flow.collectLatest { list ->
                 _state.value = _state.value.copy(transactions = list, isLoading = false)
             }
         }
