@@ -4,21 +4,28 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,14 +42,17 @@ import com.ledgernex.app.data.datastore.SettingsDataStore
 import com.ledgernex.app.ui.theme.BluePrimary
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun OnboardingScreen(
     settingsDataStore: SettingsDataStore,
     onFinished: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var currencyInput by remember { mutableStateOf("") }
+    var selectedCurrency by remember { mutableStateOf("EUR") }
+    var customCurrency by remember { mutableStateOf("") }
+    var showCustomInput by remember { mutableStateOf(false) }
+    var currencyExpanded by remember { mutableStateOf(false) }
     var selectedLanguage by remember { mutableStateOf("fr") }
 
     Column(
@@ -103,46 +113,74 @@ fun OnboardingScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- Devise (saisie libre) ---
+        // --- Devise ---
         Text(
             text = when (selectedLanguage) {
-                "en" -> "Enter your currency"
-                "ar" -> "أدخل عملتك"
-                else -> "Saisissez votre devise"
+                "en" -> "Choose your currency"
+                "ar" -> "اختر عملتك"
+                else -> "Choisissez votre devise"
             },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = BluePrimary
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = when (selectedLanguage) {
-                "en" -> "e.g. EUR, USD, TND, DA, CFA…"
-                "ar" -> "مثال: EUR, USD, TND, DA, CFA…"
-                else -> "ex : EUR, USD, TND, DA, CFA…"
-            },
-            fontSize = 13.sp,
-            color = Color.Gray
-        )
         Spacer(modifier = Modifier.height(12.dp))
 
-        OutlinedTextField(
-            value = currencyInput,
-            onValueChange = { currencyInput = it.uppercase().take(10) },
-            label = {
-                Text(
-                    when (selectedLanguage) {
+        if (!showCustomInput) {
+            ExposedDropdownMenuBox(
+                expanded = currencyExpanded,
+                onExpandedChange = { currencyExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = selectedCurrency,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(when (selectedLanguage) {
                         "en" -> "Currency"
                         "ar" -> "العملة"
                         else -> "Devise"
-                    }
+                    }) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(12.dp)
                 )
-            },
-            placeholder = { Text("EUR") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        )
+                ExposedDropdownMenu(
+                    expanded = currencyExpanded,
+                    onDismissRequest = { currencyExpanded = false }
+                ) {
+                    SettingsDataStore.SUPPORTED_CURRENCIES.forEach { (code, name) ->
+                        DropdownMenuItem(
+                            text = { Text("$code - $name") },
+                            onClick = {
+                                selectedCurrency = code
+                                currencyExpanded = false
+                            }
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text("✏️ Autre devise...") },
+                        onClick = {
+                            showCustomInput = true
+                            currencyExpanded = false
+                        }
+                    )
+                }
+            }
+        } else {
+            OutlinedTextField(
+                value = customCurrency,
+                onValueChange = { customCurrency = it.uppercase().take(10) },
+                label = { Text("Devise personnalisée") },
+                placeholder = { Text("ex: DA, CFA, XBT...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = { showCustomInput = false }) {
+                Text("← Retour à la liste")
+            }
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -150,7 +188,11 @@ fun OnboardingScreen(
         Button(
             onClick = {
                 scope.launch {
-                    val currency = currencyInput.ifBlank { "EUR" }
+                    val currency = if (showCustomInput) {
+                        customCurrency.ifBlank { "EUR" }
+                    } else {
+                        selectedCurrency
+                    }
                     settingsDataStore.setCurrency(currency)
                     settingsDataStore.setLanguage(selectedLanguage)
                     settingsDataStore.setOnboardingDone()

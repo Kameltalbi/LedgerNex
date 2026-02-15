@@ -108,7 +108,7 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
                     color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
+Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -118,7 +118,8 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
                         onValueChange = { equityInput = it },
                         label = { Text("Nouveau montant") },
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
                     Button(
                         onClick = {
@@ -128,9 +129,10 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
                                 equityInput = ""
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Valider")
+                        Text("OK")
                     }
                 }
             }
@@ -160,8 +162,10 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
                         value = languageLabel,
                         onValueChange = {},
                         readOnly = true,
+                        label = { Text("Langue") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     )
                     ExposedDropdownMenu(
                         expanded = languageExpanded,
@@ -183,7 +187,7 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- Devise (saisie libre) ---
+        // --- Devise ---
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -195,37 +199,86 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Actuelle : $currency",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
                 Spacer(modifier = Modifier.height(8.dp))
-                var currencyInput by remember { mutableStateOf("") }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = currencyInput,
-                        onValueChange = { currencyInput = it.uppercase().take(10) },
-                        label = { Text("Nouvelle devise") },
-                        placeholder = { Text("EUR, USD, TND…") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    Button(
-                        onClick = {
-                            if (currencyInput.isNotBlank()) {
-                                scope.launch { dataStore.setCurrency(currencyInput.trim()) }
-                                currencyInput = ""
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
+                
+                var showCustomCurrency by remember { mutableStateOf(false) }
+                var customCurrencyInput by remember { mutableStateOf("") }
+                var currencyExpanded by remember { mutableStateOf(false) }
+                
+                if (!showCustomCurrency) {
+                    // Afficher le nom complet de la devise si elle est dans la liste
+                    val currencyDisplay = SettingsDataStore.SUPPORTED_CURRENCIES
+                        .firstOrNull { it.first == currency }
+                        ?.let { "${it.first} - ${it.second}" }
+                        ?: currency
+                    
+                    ExposedDropdownMenuBox(
+                        expanded = currencyExpanded,
+                        onExpandedChange = { currencyExpanded = it }
                     ) {
-                        Text("Valider")
+                        OutlinedTextField(
+                            value = currencyDisplay,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Devise") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = currencyExpanded,
+                            onDismissRequest = { currencyExpanded = false }
+                        ) {
+                            SettingsDataStore.SUPPORTED_CURRENCIES.forEach { (code, name) ->
+                                DropdownMenuItem(
+                                    text = { Text("$code - $name") },
+                                    onClick = {
+                                        scope.launch { dataStore.setCurrency(code) }
+                                        currencyExpanded = false
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("✏️ Autre devise...") },
+                                onClick = {
+                                    showCustomCurrency = true
+                                    currencyExpanded = false
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = customCurrencyInput,
+                            onValueChange = { customCurrencyInput = it.uppercase().take(10) },
+                            label = { Text("Devise personnalisée") },
+                            placeholder = { Text("DA, CFA, XBT...") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Button(
+                            onClick = {
+                                if (customCurrencyInput.isNotBlank()) {
+                                    scope.launch { dataStore.setCurrency(customCurrencyInput.trim()) }
+                                    customCurrencyInput = ""
+                                    showCustomCurrency = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("OK")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = { showCustomCurrency = false }) {
+                        Text("← Retour à la liste")
                     }
                 }
             }
