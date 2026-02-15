@@ -60,7 +60,7 @@ fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
     val dataStore = app.settingsDataStore
 
     val equityAmount by dataStore.equityAmount.collectAsState(initial = 0.0)
-    val currency by dataStore.currency.collectAsState(initial = "EUR")
+    val currency by dataStore.currency.collectAsState(initial = "")
     val language by dataStore.language.collectAsState(initial = "fr")
     val categories by dataStore.categories.collectAsState(initial = emptySet())
 

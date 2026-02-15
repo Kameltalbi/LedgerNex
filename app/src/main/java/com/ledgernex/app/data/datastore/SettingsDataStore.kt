@@ -125,12 +125,24 @@ class SettingsDataStore(private val context: Context) {
 
     // --- Devise ---
     val currency: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[CURRENCY_KEY] ?: "EUR"
+        val savedCurrency = prefs[CURRENCY_KEY] ?: "EUR"
+        // Normaliser les alias courants
+        when (savedCurrency.uppercase()) {
+            "DT" -> "TND"  // Dinar Tunisien
+            "DA" -> "DZD"  // Dinar Algérien
+            else -> savedCurrency
+        }
     }
 
     suspend fun setCurrency(currency: String) {
         context.dataStore.edit { prefs ->
-            prefs[CURRENCY_KEY] = currency
+            // Normaliser avant de sauvegarder
+            val normalized = when (currency.uppercase()) {
+                "DT" -> "TND"
+                "DA" -> "DZD"
+                else -> currency
+            }
+            prefs[CURRENCY_KEY] = normalized
         }
     }
 
