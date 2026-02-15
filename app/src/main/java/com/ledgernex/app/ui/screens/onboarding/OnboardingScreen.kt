@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.ledgernex.app.data.datastore.SettingsDataStore
 import com.ledgernex.app.ui.theme.BluePrimary
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +55,21 @@ fun OnboardingScreen(
     var customCurrency by remember { mutableStateOf("") }
     var showCustomInput by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     var selectedLanguage by remember { mutableStateOf("fr") }
+    
+    // Filtrer les devises par recherche (code, nom ou pays)
+    val filteredCurrencies = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            SettingsDataStore.SUPPORTED_CURRENCIES
+        } else {
+            SettingsDataStore.SUPPORTED_CURRENCIES.filter { currency ->
+                currency.code.contains(searchQuery, ignoreCase = true) ||
+                currency.name.contains(searchQuery, ignoreCase = true) ||
+                currency.countries.any { it.contains(searchQuery, ignoreCase = true) }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -129,7 +145,10 @@ fun OnboardingScreen(
         if (!showCustomInput) {
             ExposedDropdownMenuBox(
                 expanded = currencyExpanded,
-                onExpandedChange = { currencyExpanded = it }
+                onExpandedChange = { 
+                    currencyExpanded = it
+                    if (!it) searchQuery = ""
+                }
             ) {
                 OutlinedTextField(
                     value = selectedCurrency,
@@ -146,22 +165,65 @@ fun OnboardingScreen(
                 )
                 ExposedDropdownMenu(
                     expanded = currencyExpanded,
-                    onDismissRequest = { currencyExpanded = false }
+                    onDismissRequest = { 
+                        currencyExpanded = false
+                        searchQuery = ""
+                    }
                 ) {
-                    SettingsDataStore.SUPPORTED_CURRENCIES.forEach { (code, name) ->
+                    // Champ de recherche
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(when (selectedLanguage) {
+                            "en" -> "Search by country or currency..."
+                            "ar" -> "ابحث عن بلد أو عملة..."
+                            else -> "Rechercher par pays ou devise..."
+                        }) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        singleLine = true,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    
+                    // Liste filtrée
+                    filteredCurrencies.forEach { currency ->
                         DropdownMenuItem(
-                            text = { Text("$code - $name") },
+                            text = { 
+                                Column {
+                                    Text("${currency.code} - ${currency.name}")
+                                    Text(
+                                        text = currency.countries.take(3).joinToString(", "),
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            },
                             onClick = {
-                                selectedCurrency = code
+                                selectedCurrency = currency.code
                                 currencyExpanded = false
+                                searchQuery = ""
                             }
                         )
                     }
+                    
+                    if (filteredCurrencies.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(when (selectedLanguage) {
+                                "en" -> "No results found"
+                                "ar" -> "لا توجد نتائج"
+                                else -> "Aucun résultat"
+                            }) },
+                            onClick = {}
+                        )
+                    }
+                    
                     DropdownMenuItem(
                         text = { Text("✏️ Autre devise...") },
                         onClick = {
                             showCustomInput = true
                             currencyExpanded = false
+                            searchQuery = ""
                         }
                     )
                 }

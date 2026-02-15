@@ -204,17 +204,34 @@ Row(
                 var showCustomCurrency by remember { mutableStateOf(false) }
                 var customCurrencyInput by remember { mutableStateOf("") }
                 var currencyExpanded by remember { mutableStateOf(false) }
+                var searchQuery by remember { mutableStateOf("") }
+                
+                // Filtrer les devises par recherche
+                val filteredCurrencies = remember(searchQuery) {
+                    if (searchQuery.isBlank()) {
+                        SettingsDataStore.SUPPORTED_CURRENCIES
+                    } else {
+                        SettingsDataStore.SUPPORTED_CURRENCIES.filter { curr ->
+                            curr.code.contains(searchQuery, ignoreCase = true) ||
+                            curr.name.contains(searchQuery, ignoreCase = true) ||
+                            curr.countries.any { it.contains(searchQuery, ignoreCase = true) }
+                        }
+                    }
+                }
                 
                 if (!showCustomCurrency) {
                     // Afficher le nom complet de la devise si elle est dans la liste
                     val currencyDisplay = SettingsDataStore.SUPPORTED_CURRENCIES
-                        .firstOrNull { it.first == currency }
-                        ?.let { "${it.first} - ${it.second}" }
+                        .firstOrNull { it.code == currency }
+                        ?.let { "${it.code} - ${it.name}" }
                         ?: currency
                     
                     ExposedDropdownMenuBox(
                         expanded = currencyExpanded,
-                        onExpandedChange = { currencyExpanded = it }
+                        onExpandedChange = { 
+                            currencyExpanded = it
+                            if (!it) searchQuery = ""
+                        }
                     ) {
                         OutlinedTextField(
                             value = currencyDisplay,
@@ -227,22 +244,57 @@ Row(
                         )
                         ExposedDropdownMenu(
                             expanded = currencyExpanded,
-                            onDismissRequest = { currencyExpanded = false }
+                            onDismissRequest = { 
+                                currencyExpanded = false
+                                searchQuery = ""
+                            }
                         ) {
-                            SettingsDataStore.SUPPORTED_CURRENCIES.forEach { (code, name) ->
+                            // Champ de recherche
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Rechercher par pays ou devise...") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            
+                            // Liste filtrée
+                            filteredCurrencies.forEach { currency ->
                                 DropdownMenuItem(
-                                    text = { Text("$code - $name") },
+                                    text = { 
+                                        Column {
+                                            Text("${currency.code} - ${currency.name}")
+                                            Text(
+                                                text = currency.countries.take(3).joinToString(", "),
+                                                fontSize = 12.sp,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                    },
                                     onClick = {
-                                        scope.launch { dataStore.setCurrency(code) }
+                                        scope.launch { dataStore.setCurrency(currency.code) }
                                         currencyExpanded = false
+                                        searchQuery = ""
                                     }
                                 )
                             }
+                            
+                            if (filteredCurrencies.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Aucun résultat") },
+                                    onClick = {}
+                                )
+                            }
+                            
                             DropdownMenuItem(
                                 text = { Text("✏️ Autre devise...") },
                                 onClick = {
                                     showCustomCurrency = true
                                     currencyExpanded = false
+                                    searchQuery = ""
                                 }
                             )
                         }
