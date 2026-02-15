@@ -23,23 +23,31 @@ import com.ledgernex.app.ui.screens.assets.AssetsScreen
 import com.ledgernex.app.ui.screens.bilan.BilanScreen
 import com.ledgernex.app.ui.screens.comptes.ComptesScreen
 import com.ledgernex.app.ui.screens.dashboard.DashboardScreen
+import com.ledgernex.app.ui.screens.onboarding.OnboardingScreen
 import com.ledgernex.app.ui.screens.parametres.ParametresScreen
 import com.ledgernex.app.ui.screens.resultat.ResultatScreen
 import com.ledgernex.app.ui.screens.transactions.TransactionsScreen
+import com.ledgernex.app.ui.theme.BackgroundLight
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.OnSurfaceSecondary
+import com.ledgernex.app.ui.theme.SurfaceWhite
 
 @Composable
-fun AppNavigation(app: LedgerNexApp) {
+fun AppNavigation(app: LedgerNexApp, startDestination: String = Screen.Dashboard.route) {
     val navController = rememberNavController()
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute != Screen.Onboarding.route
 
-                Screen.bottomNavItems.forEach { screen ->
+    Scaffold(
+        containerColor = BackgroundLight,
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar(containerColor = SurfaceWhite) {
+                    val currentDestination = navBackStackEntry?.destination
+
+                    Screen.bottomNavItems.forEach { screen ->
                     val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
@@ -67,14 +75,15 @@ fun AppNavigation(app: LedgerNexApp) {
                             unselectedIconColor = OnSurfaceSecondary,
                             unselectedTextColor = OnSurfaceSecondary
                         )
-                    )
+                        )
+                    }
                 }
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Dashboard.route) { DashboardScreen(app, navController) }
@@ -82,8 +91,18 @@ fun AppNavigation(app: LedgerNexApp) {
             composable(Screen.Resultat.route) { ResultatScreen(app) }
             composable(Screen.Bilan.route) { BilanScreen(app) }
             composable(Screen.Comptes.route) { ComptesScreen(app) }
-            composable(Screen.Immobilisations.route) { AssetsScreen(app) }
-            composable(Screen.Parametres.route) { ParametresScreen(app) }
+            composable(Screen.Immobilisations.route) { AssetsScreen(app, navController) }
+            composable(Screen.Parametres.route) { ParametresScreen(app, navController) }
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(
+                    settingsDataStore = app.settingsDataStore,
+                    onFinished = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
     }
 }

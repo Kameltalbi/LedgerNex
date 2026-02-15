@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
@@ -45,27 +46,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.ledgernex.app.LedgerNexApp
+import com.ledgernex.app.data.datastore.SettingsDataStore
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.RedError
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ParametresScreen(app: LedgerNexApp) {
+fun ParametresScreen(app: LedgerNexApp, navController: NavController) {
     val scope = rememberCoroutineScope()
     val dataStore = app.settingsDataStore
 
     val equityAmount by dataStore.equityAmount.collectAsState(initial = 0.0)
     val currency by dataStore.currency.collectAsState(initial = "EUR")
+    val language by dataStore.language.collectAsState(initial = "fr")
     val categories by dataStore.categories.collectAsState(initial = emptySet())
 
     var equityInput by remember { mutableStateOf("") }
     var newCategoryInput by remember { mutableStateOf("") }
-    var currencyExpanded by remember { mutableStateOf(false) }
+    var languageExpanded by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-
-    val currencies = listOf("EUR", "USD", "GBP", "TND", "MAD", "CHF")
 
     Column(
         modifier = Modifier
@@ -73,12 +75,17 @@ fun ParametresScreen(app: LedgerNexApp) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text(
-            text = "Paramètres",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = BluePrimary
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = BluePrimary)
+            }
+            Text(
+                text = "Paramètres",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = BluePrimary
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -131,7 +138,52 @@ fun ParametresScreen(app: LedgerNexApp) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- Devise ---
+        // --- Langue ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Langue",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                val languageLabel = SettingsDataStore.SUPPORTED_LANGUAGES.firstOrNull { it.first == language }?.second ?: language
+                ExposedDropdownMenuBox(
+                    expanded = languageExpanded,
+                    onExpandedChange = { languageExpanded = !languageExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = languageLabel,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = languageExpanded,
+                        onDismissRequest = { languageExpanded = false }
+                    ) {
+                        SettingsDataStore.SUPPORTED_LANGUAGES.forEach { (code, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    scope.launch { dataStore.setLanguage(code) }
+                                    languageExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // --- Devise (saisie libre) ---
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -143,31 +195,37 @@ fun ParametresScreen(app: LedgerNexApp) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Actuelle : $currency",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                ExposedDropdownMenuBox(
-                    expanded = currencyExpanded,
-                    onExpandedChange = { currencyExpanded = !currencyExpanded }
+                var currencyInput by remember { mutableStateOf("") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
-                        value = currency,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        value = currencyInput,
+                        onValueChange = { currencyInput = it.uppercase().take(10) },
+                        label = { Text("Nouvelle devise") },
+                        placeholder = { Text("EUR, USD, TND…") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
                     )
-                    ExposedDropdownMenu(
-                        expanded = currencyExpanded,
-                        onDismissRequest = { currencyExpanded = false }
+                    Button(
+                        onClick = {
+                            if (currencyInput.isNotBlank()) {
+                                scope.launch { dataStore.setCurrency(currencyInput.trim()) }
+                                currencyInput = ""
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary)
                     ) {
-                        currencies.forEach { c ->
-                            DropdownMenuItem(
-                                text = { Text(c) },
-                                onClick = {
-                                    scope.launch { dataStore.setCurrency(c) }
-                                    currencyExpanded = false
-                                }
-                            )
-                        }
+                        Text("Valider")
                     }
                 }
             }

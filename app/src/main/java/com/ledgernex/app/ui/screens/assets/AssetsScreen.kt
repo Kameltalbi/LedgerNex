@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.ledgernex.app.LedgerNexApp
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
@@ -52,7 +54,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun AssetsScreen(app: LedgerNexApp) {
+fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
     val viewModel: AssetsViewModel = viewModel(
         factory = AssetsViewModel.Factory(app.assetRepository)
     )
@@ -77,12 +79,19 @@ fun AssetsScreen(app: LedgerNexApp) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Immobilisations",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = BluePrimary
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = BluePrimary)
+                }
+                Text(
+                    text = "Immobilisations",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = BluePrimary
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

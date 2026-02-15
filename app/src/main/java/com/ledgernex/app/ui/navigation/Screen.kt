@@ -22,6 +22,7 @@ sealed class Screen(
     object Comptes : Screen("comptes", "Comptes", Icons.Default.Wallet)
     object Immobilisations : Screen("immobilisations", "Immobilisations", Icons.Default.Business)
     object Parametres : Screen("parametres", "Paramètres", Icons.Default.Settings)
+    object Onboarding : Screen("onboarding", "Bienvenue", Icons.Default.Settings)
 
     companion object {
         val bottomNavItems = listOf(Dashboard, Transactions, Resultat, Bilan, Comptes)
