@@ -70,4 +70,7 @@ class TransactionRepositoryImpl(
 
     override suspend fun getRecentByAccount(accountId: Long, limit: Int): List<Transaction> =
         dao.getRecentByAccount(accountId, limit)
+
+    override suspend fun getTransactionsByDateRange(startEpoch: Long, endEpoch: Long): List<Transaction> =
+        dao.getTransactionsByDateRange(startEpoch, endEpoch)
 }

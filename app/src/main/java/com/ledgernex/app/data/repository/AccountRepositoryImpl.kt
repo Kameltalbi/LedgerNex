@@ -1,6 +1,7 @@
 package com.ledgernex.app.data.repository
 
 import com.ledgernex.app.data.dao.AccountDao
+import com.ledgernex.app.data.entity.AccountWithBalance
 import com.ledgernex.app.data.entity.CompanyAccount
 import com.ledgernex.app.domain.repository.AccountRepository
 import kotlinx.coroutines.flow.Flow
@@ -10,6 +11,23 @@ class AccountRepositoryImpl(
 ) : AccountRepository {
 
     override fun getAll(): Flow<List<CompanyAccount>> = dao.getAll()
+
+    override suspend fun getAllAccounts(): List<CompanyAccount> = dao.getAllAccounts()
+
+    override suspend fun getAllAccountsWithBalance(): List<AccountWithBalance> {
+        val accounts = dao.getAllAccounts()
+        return accounts.map { account ->
+            val balance = dao.getAccountBalance(account.id)
+            AccountWithBalance(
+                id = account.id,
+                nom = account.nom,
+                soldeInitial = account.soldeInitial,
+                actif = account.actif,
+                type = account.type,
+                balance = balance
+            )
+        }
+    }
 
     override fun getActiveAccounts(): Flow<List<CompanyAccount>> = dao.getActiveAccounts()
 

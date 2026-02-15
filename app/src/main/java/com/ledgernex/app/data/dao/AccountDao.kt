@@ -23,6 +23,9 @@ interface AccountDao {
     @Query("SELECT * FROM company_accounts ORDER BY nom ASC")
     fun getAll(): Flow<List<CompanyAccount>>
 
+    @Query("SELECT * FROM company_accounts ORDER BY nom ASC")
+    suspend fun getAllAccounts(): List<CompanyAccount>
+
     @Query("SELECT * FROM company_accounts WHERE actif = 1 ORDER BY nom ASC")
     fun getActiveAccounts(): Flow<List<CompanyAccount>>
 

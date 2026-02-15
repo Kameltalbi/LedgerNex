@@ -23,6 +23,9 @@ interface AssetDao {
     @Query("SELECT * FROM assets ORDER BY dateAchatEpoch DESC")
     fun getAll(): Flow<List<Asset>>
 
+    @Query("SELECT * FROM assets ORDER BY dateAchatEpoch DESC")
+    suspend fun getAllAssets(): List<Asset>
+
     @Query("SELECT * FROM assets WHERE id = :id")
     suspend fun getById(id: Long): Asset?
 }

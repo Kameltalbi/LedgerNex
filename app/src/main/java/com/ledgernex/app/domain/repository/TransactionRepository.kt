@@ -27,4 +27,5 @@ interface TransactionRepository {
     suspend fun getTotalRecettesForAccount(accountId: Long): Double
     suspend fun getTotalDepensesForAccount(accountId: Long): Double
     suspend fun getRecentByAccount(accountId: Long, limit: Int = 10): List<Transaction>
+    suspend fun getTransactionsByDateRange(startEpoch: Long, endEpoch: Long): List<Transaction>
 }

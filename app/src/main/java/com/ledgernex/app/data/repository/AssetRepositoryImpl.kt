@@ -11,6 +11,8 @@ class AssetRepositoryImpl(
 
     override fun getAll(): Flow<List<Asset>> = dao.getAll()
 
+    override suspend fun getAllAssets(): List<Asset> = dao.getAllAssets()
+
     override suspend fun getById(id: Long): Asset? = dao.getById(id)
 
     override suspend fun insert(asset: Asset): Long = dao.insert(asset)

@@ -149,6 +149,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY dateEpoch DESC LIMIT :limit")
     suspend fun getRecentByAccount(accountId: Long, limit: Int = 10): List<Transaction>
 
+    /** Transactions dans un intervalle de dates (retourne List pour export) */
+    @Query("SELECT * FROM transactions WHERE dateEpoch BETWEEN :startEpoch AND :endEpoch ORDER BY dateEpoch DESC")
+    suspend fun getTransactionsByDateRange(startEpoch: Long, endEpoch: Long): List<Transaction>
+
     /** Résultat mensuel pour chaque mois d'une année (pour graphique dashboard) */
     @Query("""
         SELECT 

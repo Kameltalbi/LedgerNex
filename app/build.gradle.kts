@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.ledgernex.app"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -77,6 +77,13 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.navigation.compose)
+
+    // PDF Export (iText)
+    implementation("com.itextpdf:itext7-core:7.2.5")
+    
+    // Excel Export (Apache POI)
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)

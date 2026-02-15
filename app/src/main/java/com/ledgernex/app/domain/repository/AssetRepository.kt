@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface AssetRepository {
     fun getAll(): Flow<List<Asset>>
+    suspend fun getAllAssets(): List<Asset>
     suspend fun getById(id: Long): Asset?
     suspend fun insert(asset: Asset): Long
     suspend fun update(asset: Asset)
