@@ -1,5 +1,7 @@
 package com.ledgernex.app.ui.screens.parametres
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -10,11 +12,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
@@ -220,83 +227,84 @@ Row(
                 }
                 
                 if (!showCustomCurrency) {
-                    // Afficher le nom complet de la devise si elle est dans la liste
-                    val currencyDisplay = SettingsDataStore.SUPPORTED_CURRENCIES
-                        .firstOrNull { it.code == currency }
-                        ?.let { "${it.code} - ${it.name}" }
-                        ?: currency
-                    
-                    ExposedDropdownMenuBox(
-                        expanded = currencyExpanded,
-                        onExpandedChange = { 
-                            currencyExpanded = it
-                            if (!it) searchQuery = ""
-                        }
-                    ) {
+                    Column {
+                        // Champ de sélection avec recherche intégrée
                         OutlinedTextField(
-                            value = currencyDisplay,
-                            onValueChange = {},
-                            readOnly = true,
+                            value = if (currencyExpanded) searchQuery else currency,
+                            onValueChange = { 
+                                searchQuery = it
+                                if (!currencyExpanded) currencyExpanded = true
+                            },
                             label = { Text("Devise") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        ExposedDropdownMenu(
-                            expanded = currencyExpanded,
-                            onDismissRequest = { 
-                                currencyExpanded = false
-                                searchQuery = ""
+                            placeholder = { Text("Rechercher par pays ou devise...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            trailingIcon = {
+                                IconButton(onClick = { currencyExpanded = !currencyExpanded }) {
+                                    Icon(
+                                        imageVector = if (currencyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null
+                                    )
+                                }
                             }
-                        ) {
-                            // Champ de recherche
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                placeholder = { Text("Rechercher par pays ou devise...") },
+                        )
+                        
+                        // Liste déroulante
+                        if (currencyExpanded && filteredCurrencies.isNotEmpty()) {
+                            Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            
-                            // Liste filtrée
-                            filteredCurrencies.forEach { currency ->
-                                DropdownMenuItem(
-                                    text = { 
-                                        Column {
-                                            Text("${currency.code} - ${currency.name}")
-                                            Text(
-                                                text = currency.countries.take(3).joinToString(", "),
-                                                fontSize = 12.sp,
-                                                color = Color.Gray
-                                            )
+                                    .height(300.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    filteredCurrencies.forEach { curr ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    scope.launch { dataStore.setCurrency(curr.code) }
+                                                    currencyExpanded = false
+                                                    searchQuery = ""
+                                                }
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "${curr.code} - ${curr.name}",
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    text = curr.countries.take(3).joinToString(", "),
+                                                    fontSize = 12.sp,
+                                                    color = Color.Gray
+                                                )
+                                            }
                                         }
-                                    },
-                                    onClick = {
-                                        scope.launch { dataStore.setCurrency(currency.code) }
-                                        currencyExpanded = false
-                                        searchQuery = ""
                                     }
-                                )
-                            }
-                            
-                            if (filteredCurrencies.isEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text("Aucun résultat") },
-                                    onClick = {}
-                                )
-                            }
-                            
-                            DropdownMenuItem(
-                                text = { Text("✏️ Autre devise...") },
-                                onClick = {
-                                    showCustomCurrency = true
-                                    currencyExpanded = false
-                                    searchQuery = ""
+                                    
+                                    // Option devise personnalisée
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                showCustomCurrency = true
+                                                currencyExpanded = false
+                                                searchQuery = ""
+                                            }
+                                            .padding(16.dp)
+                                            .background(Color.LightGray.copy(alpha = 0.1f)),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("✏️ Autre devise...", fontWeight = FontWeight.Medium)
+                                    }
                                 }
-                            )
+                            }
                         }
                     }
                 } else {

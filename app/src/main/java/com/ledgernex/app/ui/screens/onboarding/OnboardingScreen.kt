@@ -267,9 +267,11 @@ fun OnboardingScreen(
                     } else {
                         selectedCurrency
                     }
+                    println("DEBUG: Saving currency: $currency")
                     settingsDataStore.setCurrency(currency)
                     settingsDataStore.setLanguage(selectedLanguage)
                     settingsDataStore.setOnboardingDone()
+                    println("DEBUG: Currency saved, finishing onboarding")
                     onFinished()
                 }
             },
