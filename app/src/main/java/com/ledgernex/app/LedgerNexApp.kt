@@ -2,6 +2,7 @@ package com.ledgernex.app
 
 import android.app.Application
 import android.util.Log
+import com.google.firebase.FirebaseApp
 import com.ledgernex.app.data.database.LedgerNexDatabase
 import com.ledgernex.app.data.datastore.SettingsDataStore
 import com.ledgernex.app.data.repository.AccountRepositoryImpl
@@ -13,6 +14,7 @@ import com.ledgernex.app.domain.repository.AssetRepository
 import com.ledgernex.app.domain.repository.RecurrenceRepository
 import com.ledgernex.app.domain.repository.TransactionRepository
 import com.ledgernex.app.manager.RecurrenceManager
+import com.ledgernex.app.data.sync.CloudSyncManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,8 +46,14 @@ class LedgerNexApp : Application() {
     lateinit var recurrenceManager: RecurrenceManager
         private set
 
+    lateinit var cloudSyncManager: CloudSyncManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
+
+        // Initialize Firebase
+        FirebaseApp.initializeApp(this)
 
         database = LedgerNexDatabase.getInstance(this)
 
@@ -57,5 +65,8 @@ class LedgerNexApp : Application() {
         settingsDataStore = SettingsDataStore(this)
 
         recurrenceManager = RecurrenceManager(recurrenceRepository, transactionRepository)
+        
+        // Cloud Sync Manager
+        cloudSyncManager = CloudSyncManager(transactionRepository, accountRepository, assetRepository)
     }
 }
