@@ -234,14 +234,19 @@ private fun AssetCard(
     }
 }
 
+private val dateAchatFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
 @Composable
 private fun AddAssetDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, LocalDate, Double, Int) -> Unit
 ) {
+    val today = LocalDate.now()
     var nom by remember { mutableStateOf("") }
+    var dateAchatStr by remember { mutableStateOf(today.format(dateAchatFormatter)) }
     var montant by remember { mutableStateOf("") }
     var duree by remember { mutableStateOf("") }
+    var dateError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -255,6 +260,15 @@ private fun AddAssetDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
+                    value = dateAchatStr,
+                    onValueChange = { dateAchatStr = it; dateError = null },
+                    label = { Text("Date d'achat") },
+                    placeholder = { Text("JJ/MM/AAAA") },
+                    supportingText = dateError?.let { { Text(it, color = RedError) } },
+                    isError = dateError != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
                     value = montant,
                     onValueChange = { montant = it },
                     label = { Text("Montant TTC") },
@@ -264,6 +278,7 @@ private fun AddAssetDialog(
                     value = duree,
                     onValueChange = { duree = it },
                     label = { Text("Durée amortissement (années)") },
+                    placeholder = { Text("Ex. 3, 5") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -273,7 +288,13 @@ private fun AddAssetDialog(
                 val m = montant.toDoubleOrNull() ?: return@TextButton
                 val d = duree.toIntOrNull() ?: return@TextButton
                 if (nom.isBlank() || d <= 0) return@TextButton
-                onConfirm(nom, LocalDate.now(), m, d)
+                val dateAchat = try {
+                    LocalDate.parse(dateAchatStr.trim(), dateAchatFormatter)
+                } catch (_: Exception) {
+                    dateError = "Date invalide (JJ/MM/AAAA)"
+                    return@TextButton
+                }
+                onConfirm(nom, dateAchat, m, d)
             }) {
                 Text("Ajouter")
             }
