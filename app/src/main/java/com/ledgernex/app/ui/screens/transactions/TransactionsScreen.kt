@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.UploadFile
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,12 +75,15 @@ import com.ledgernex.app.data.entity.TransactionType
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
+import com.ledgernex.app.ui.util.CsvTransactionImporter
 import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.TransactionsViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private data class ImportResult(val successCount: Int, val errorCount: Int, val errors: List<String>)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +93,31 @@ fun TransactionsScreen(app: LedgerNexApp) {
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showImportResult by remember { mutableStateOf<ImportResult?>(null) }
     val currency by app.settingsDataStore.currency.collectAsState(initial = "")
+
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            val context = app.applicationContext
+            val (transactions, errors) = CsvTransactionImporter.importFromUri(context, it)
+            if (transactions.isNotEmpty()) {
+                val (successCount, importErrors) = viewModel.importTransactions(transactions)
+                showImportResult = ImportResult(
+                    successCount = successCount,
+                    errorCount = errors.size + importErrors.size,
+                    errors = errors + importErrors
+                )
+            } else {
+                showImportResult = ImportResult(
+                    successCount = 0,
+                    errorCount = errors.size,
+                    errors = errors
+                )
+            }
+        }
+    }
 
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -114,6 +145,17 @@ fun TransactionsScreen(app: LedgerNexApp) {
             )
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            // Bouton Import CSV
+            OutlinedButton(
+                onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*")) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.UploadFile, contentDescription = "Import CSV")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Importer CSV")
+            }
 
             // Sélecteur mois
             Row(
@@ -190,6 +232,45 @@ fun TransactionsScreen(app: LedgerNexApp) {
             onConfirm = { type, date, libelle, objet, montant, categorie, accountId ->
                 viewModel.addTransaction(type, date, libelle, objet, montant, categorie, accountId)
                 showAddDialog = false
+            }
+        )
+    }
+
+    // Dialogue résultat import CSV
+    if (showImportResult != null) {
+        val result = showImportResult!!
+        AlertDialog(
+            onDismissRequest = { showImportResult = null },
+            title = { Text("Résultat de l'import") },
+            text = {
+                Column {
+                    Text(
+                        "${result.successCount} transactions importées avec succès",
+                        color = GreenAccent,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (result.errorCount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "${result.errorCount} erreurs",
+                            color = RedError,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        // Show first 5 errors
+                        for (i in 0 until minOf(result.errors.size, 5)) {
+                            Text("• ${result.errors[i]}", fontSize = 11.sp, color = Color.Gray)
+                        }
+                        if (result.errors.size > 5) {
+                            Text("... et ${result.errors.size - 5} autres erreurs", fontSize = 11.sp, color = Color.Gray)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showImportResult = null }) {
+                    Text("OK", color = BluePrimary)
+                }
             }
         )
     }

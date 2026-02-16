@@ -36,13 +36,14 @@ class AssetsViewModel(
         loadAssets()
     }
 
-    fun addAsset(nom: String, dateAchat: LocalDate, montantTTC: Double, dureeAmortissement: Int) {
+    fun addAsset(nom: String, dateAchat: LocalDate, montantTTC: Double, quantite: Int, dureeAmortissement: Int) {
         viewModelScope.launch {
             assetRepo.insert(
                 Asset(
                     nom = nom,
                     dateAchatEpoch = dateAchat.toEpochDay(),
                     montantTTC = montantTTC,
+                    quantite = quantite,
                     dureeAmortissement = dureeAmortissement
                 )
             )
@@ -55,6 +56,19 @@ class AssetsViewModel(
         }
     }
 
+    fun updateAsset(asset: Asset, nom: String, dateAchat: LocalDate, montantTTC: Double, quantite: Int, dureeAmortissement: Int) {
+        viewModelScope.launch {
+            val updatedAsset = asset.copy(
+                nom = nom,
+                dateAchatEpoch = dateAchat.toEpochDay(),
+                montantTTC = montantTTC,
+                quantite = quantite,
+                dureeAmortissement = dureeAmortissement
+            )
+            assetRepo.update(updatedAsset)
+        }
+    }
+
     private fun loadAssets() {
         viewModelScope.launch {
             assetRepo.getAll().collectLatest { assets ->
@@ -62,9 +76,10 @@ class AssetsViewModel(
                 val details = assets.map { asset ->
                     val dateAchat = LocalDate.ofEpochDay(asset.dateAchatEpoch)
                     val yearsElapsed = Period.between(dateAchat, today).years.coerceAtLeast(0)
-                    val amortAnnuel = asset.montantTTC / asset.dureeAmortissement
-                    val amortCumule = (amortAnnuel * yearsElapsed).coerceAtMost(asset.montantTTC)
-                    val vnc = (asset.montantTTC - amortCumule).coerceAtLeast(0.0)
+                    val montantTotal = asset.montantTTC * asset.quantite
+                    val amortAnnuel = montantTotal / asset.dureeAmortissement
+                    val amortCumule = (amortAnnuel * yearsElapsed).coerceAtMost(montantTotal)
+                    val vnc = (montantTotal - amortCumule).coerceAtLeast(0.0)
 
                     AssetDetail(
                         asset = asset,

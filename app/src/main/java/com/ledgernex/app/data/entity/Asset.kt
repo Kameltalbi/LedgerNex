@@ -9,6 +9,7 @@ data class Asset(
     val id: Long = 0,
     val nom: String,
     val dateAchatEpoch: Long,     // LocalDate.toEpochDay()
-    val montantTTC: Double,
+    val montantTTC: Double,       // prix unitaire
+    val quantite: Int = 1,        // nombre d'unités
     val dureeAmortissement: Int   // en années
 )

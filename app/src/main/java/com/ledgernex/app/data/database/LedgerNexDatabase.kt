@@ -22,7 +22,7 @@ import com.ledgernex.app.data.entity.Transaction
         RecurrenceTemplate::class,
         Asset::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,6 +61,8 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editingAsset by remember { mutableStateOf<AssetDetail?>(null) }
     val currency by app.settingsDataStore.currency.collectAsState(initial = "")
     val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -129,9 +132,16 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(state.assets, key = { it.asset.id }) { detail ->
-                            AssetCard(detail, currency, dateFmt) {
-                                viewModel.deleteAsset(detail.asset)
-                            }
+                            AssetCard(
+                                detail = detail,
+                                currency = currency,
+                                dateFmt = dateFmt,
+                                onEdit = {
+                                    editingAsset = detail
+                                    showEditDialog = true
+                                },
+                                onDelete = { viewModel.deleteAsset(detail.asset) }
+                            )
                         }
                     }
                 }
@@ -142,9 +152,24 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
     if (showAddDialog) {
         AddAssetDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { nom, dateAchat, montant, duree ->
-                viewModel.addAsset(nom, dateAchat, montant, duree)
+            onConfirm = { nom, dateAchat, montant, quantite, duree ->
+                viewModel.addAsset(nom, dateAchat, montant, quantite, duree)
                 showAddDialog = false
+            }
+        )
+    }
+
+    if (showEditDialog && editingAsset != null) {
+        EditAssetDialog(
+            assetDetail = editingAsset!!,
+            onDismiss = {
+                showEditDialog = false
+                editingAsset = null
+            },
+            onConfirm = { nom, dateAchat, montant, quantite, duree ->
+                viewModel.updateAsset(editingAsset!!.asset, nom, dateAchat, montant, quantite, duree)
+                showEditDialog = false
+                editingAsset = null
             }
         )
     }
@@ -155,6 +180,7 @@ private fun AssetCard(
     detail: AssetDetail,
     currency: String,
     dateFmt: DateTimeFormatter,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -174,13 +200,18 @@ private fun AssetCard(
                     fontSize = 16.sp,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = Color.Gray)
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Modifier", tint = BluePrimary)
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = Color.Gray)
+                    }
                 }
             }
 
             Text(
-                text = "Achat : ${LocalDate.ofEpochDay(detail.asset.dateAchatEpoch).format(dateFmt)} • ${detail.asset.dureeAmortissement} ans",
+                text = "Achat : ${LocalDate.ofEpochDay(detail.asset.dateAchatEpoch).format(dateFmt)} • ${detail.asset.dureeAmortissement} ans • Qty: ${detail.asset.quantite}",
                 fontSize = 12.sp,
                 color = OnSurfaceSecondary
             )
@@ -192,7 +223,7 @@ private fun AssetCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Montant", fontSize = 11.sp, color = OnSurfaceSecondary)
+                    Text("Prix unitaire", fontSize = 11.sp, color = OnSurfaceSecondary)
                     Text(formatCurrency(detail.asset.montantTTC, currency), fontWeight = FontWeight.Medium, fontSize = 14.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -213,8 +244,9 @@ private fun AssetCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Barre de progression amortissement
-            val progress = if (detail.asset.montantTTC > 0) {
-                (detail.amortissementCumule / detail.asset.montantTTC).toFloat().coerceIn(0f, 1f)
+            val montantTotal = detail.asset.montantTTC * detail.asset.quantite
+            val progress = if (montantTotal > 0) {
+                (detail.amortissementCumule / montantTotal).toFloat().coerceIn(0f, 1f)
             } else 0f
 
             androidx.compose.material3.LinearProgressIndicator(
@@ -239,12 +271,13 @@ private val dateAchatFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 @Composable
 private fun AddAssetDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, LocalDate, Double, Int) -> Unit
+    onConfirm: (String, LocalDate, Double, Int, Int) -> Unit
 ) {
     val today = LocalDate.now()
     var nom by remember { mutableStateOf("") }
     var dateAchatStr by remember { mutableStateOf(today.format(dateAchatFormatter)) }
     var montant by remember { mutableStateOf("") }
+    var quantite by remember { mutableStateOf("1") }
     var duree by remember { mutableStateOf("") }
     var dateError by remember { mutableStateOf<String?>(null) }
 
@@ -271,7 +304,14 @@ private fun AddAssetDialog(
                 OutlinedTextField(
                     value = montant,
                     onValueChange = { montant = it },
-                    label = { Text("Montant TTC") },
+                    label = { Text("Prix unitaire TTC") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = quantite,
+                    onValueChange = { quantite = it },
+                    label = { Text("Quantité") },
+                    placeholder = { Text("Ex. 1, 5, 10") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -286,17 +326,96 @@ private fun AddAssetDialog(
         confirmButton = {
             TextButton(onClick = {
                 val m = montant.toDoubleOrNull() ?: return@TextButton
+                val q = quantite.toIntOrNull() ?: 1
                 val d = duree.toIntOrNull() ?: return@TextButton
-                if (nom.isBlank() || d <= 0) return@TextButton
+                if (nom.isBlank() || d <= 0 || q <= 0) return@TextButton
                 val dateAchat = try {
                     LocalDate.parse(dateAchatStr.trim(), dateAchatFormatter)
                 } catch (_: Exception) {
                     dateError = "Date invalide (JJ/MM/AAAA)"
                     return@TextButton
                 }
-                onConfirm(nom, dateAchat, m, d)
+                onConfirm(nom, dateAchat, m, q, d)
             }) {
                 Text("Ajouter")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        }
+    )
+}
+
+@Composable
+private fun EditAssetDialog(
+    assetDetail: AssetDetail,
+    onDismiss: () -> Unit,
+    onConfirm: (String, LocalDate, Double, Int, Int) -> Unit
+) {
+    var nom by remember { mutableStateOf(assetDetail.asset.nom) }
+    var dateAchatStr by remember { mutableStateOf(LocalDate.ofEpochDay(assetDetail.asset.dateAchatEpoch).format(dateAchatFormatter)) }
+    var montant by remember { mutableStateOf(assetDetail.asset.montantTTC.toString()) }
+    var quantite by remember { mutableStateOf(assetDetail.asset.quantite.toString()) }
+    var duree by remember { mutableStateOf(assetDetail.asset.dureeAmortissement.toString()) }
+    var dateError by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Modifier immobilisation") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = nom,
+                    onValueChange = { nom = it },
+                    label = { Text("Nom") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = dateAchatStr,
+                    onValueChange = { dateAchatStr = it; dateError = null },
+                    label = { Text("Date d'achat") },
+                    placeholder = { Text("JJ/MM/AAAA") },
+                    supportingText = dateError?.let { { Text(it, color = RedError) } },
+                    isError = dateError != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = montant,
+                    onValueChange = { montant = it },
+                    label = { Text("Prix unitaire TTC") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = quantite,
+                    onValueChange = { quantite = it },
+                    label = { Text("Quantité") },
+                    placeholder = { Text("Ex. 1, 5, 10") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = duree,
+                    onValueChange = { duree = it },
+                    label = { Text("Durée amortissement (années)") },
+                    placeholder = { Text("Ex. 3, 5") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val m = montant.toDoubleOrNull() ?: return@TextButton
+                val q = quantite.toIntOrNull() ?: 1
+                val d = duree.toIntOrNull() ?: return@TextButton
+                if (nom.isBlank() || d <= 0 || q <= 0) return@TextButton
+                val dateAchat = try {
+                    LocalDate.parse(dateAchatStr.trim(), dateAchatFormatter)
+                } catch (_: Exception) {
+                    dateError = "Date invalide (JJ/MM/AAAA)"
+                    return@TextButton
+                }
+                onConfirm(nom, dateAchat, m, q, d)
+            }) {
+                Text("Enregistrer")
             }
         },
         dismissButton = {
