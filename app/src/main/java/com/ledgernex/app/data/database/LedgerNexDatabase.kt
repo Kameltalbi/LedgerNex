@@ -43,7 +43,8 @@ abstract class LedgerNexDatabase : RoomDatabase() {
                     context.applicationContext,
                     LedgerNexDatabase::class.java,
                     "ledgernex_database"
-                ).build()
+                ).fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }
