@@ -26,11 +26,14 @@ class SettingsDataStore(private val context: Context) {
         private val CURRENCY_KEY = stringPreferencesKey("currency")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val ONBOARDING_DONE_KEY = booleanPreferencesKey("onboarding_done")
-        private val CATEGORIES_KEY = stringPreferencesKey("categories_csv")
+        private val RECETTES_CATEGORIES_KEY = stringPreferencesKey("recettes_categories_csv")
+        private val DEPENSES_CATEGORIES_KEY = stringPreferencesKey("depenses_categories_csv")
 
-        private const val DEFAULT_CATEGORIES_CSV = "Ventes,Prestations,Loyer,Salaires,Fournitures,Télécom,Transport,Assurance,Impôts,Divers"
+        private const val DEFAULT_RECETTES_CSV = "Ventes,Prestations,Services,Consulting,Autres recettes"
+        private const val DEFAULT_DEPENSES_CSV = "Loyer,Salaires,Fournitures,Télécom,Transport,Assurance,Impôts,Marketing,Maintenance,Divers"
 
-        val DEFAULT_CATEGORIES = DEFAULT_CATEGORIES_CSV.split(",").toSet()
+        val DEFAULT_RECETTES_CATEGORIES = DEFAULT_RECETTES_CSV.split(",").map { it.trim() }.toSet()
+        val DEFAULT_DEPENSES_CATEGORIES = DEFAULT_DEPENSES_CSV.split(",").map { it.trim() }.toSet()
 
         val SUPPORTED_LANGUAGES = listOf(
             "fr" to "Français",
@@ -145,53 +148,103 @@ class SettingsDataStore(private val context: Context) {
         }
     }
 
-    // --- Catégories (stockées en CSV pour fiabilité) ---
-    val categories: Flow<Set<String>> = context.dataStore.data.map { prefs ->
-        val csv = prefs[CATEGORIES_KEY] ?: DEFAULT_CATEGORIES_CSV
+    // --- Catégories Recettes ---
+    val recettesCategories: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        val csv = prefs[RECETTES_CATEGORIES_KEY] ?: DEFAULT_RECETTES_CSV
         csv.split(",").filter { it.isNotBlank() }.map { it.trim() }.toSet()
     }
 
-    suspend fun setCategories(categories: Set<String>) {
+    suspend fun setRecettesCategories(categories: Set<String>) {
         context.dataStore.edit { prefs ->
-            prefs[CATEGORIES_KEY] = categories.filter { it.isNotBlank() }.joinToString(",")
+            prefs[RECETTES_CATEGORIES_KEY] = categories.filter { it.isNotBlank() }.joinToString(",")
         }
     }
 
-    suspend fun addCategory(category: String) {
+    suspend fun addRecettesCategory(category: String) {
         val trimmed = category.trim()
         if (trimmed.isBlank()) return
         context.dataStore.edit { prefs ->
-            val csv = prefs[CATEGORIES_KEY] ?: DEFAULT_CATEGORIES_CSV
+            val csv = prefs[RECETTES_CATEGORIES_KEY] ?: DEFAULT_RECETTES_CSV
             val current = csv.split(",").filter { it.isNotBlank() }.map { it.trim() }.toMutableList()
             if (!current.contains(trimmed)) {
                 current.add(trimmed)
             }
-            prefs[CATEGORIES_KEY] = current.joinToString(",")
+            prefs[RECETTES_CATEGORIES_KEY] = current.joinToString(",")
         }
     }
 
-    suspend fun removeCategory(category: String) {
+    suspend fun removeRecettesCategory(category: String) {
         context.dataStore.edit { prefs ->
-            val csv = prefs[CATEGORIES_KEY] ?: DEFAULT_CATEGORIES_CSV
+            val csv = prefs[RECETTES_CATEGORIES_KEY] ?: DEFAULT_RECETTES_CSV
             val current = csv.split(",").filter { it.isNotBlank() && it.trim() != category }.map { it.trim() }
-            prefs[CATEGORIES_KEY] = current.joinToString(",")
+            prefs[RECETTES_CATEGORIES_KEY] = current.joinToString(",")
         }
     }
 
-    suspend fun updateCategory(oldName: String, newName: String) {
+    suspend fun updateRecettesCategory(oldName: String, newName: String) {
         val trimmedNew = newName.trim()
         if (trimmedNew.isBlank()) return
-        
         context.dataStore.edit { prefs ->
-            val csv = prefs[CATEGORIES_KEY] ?: DEFAULT_CATEGORIES_CSV
+            val csv = prefs[RECETTES_CATEGORIES_KEY] ?: DEFAULT_RECETTES_CSV
             val updated = csv.split(",")
                 .map { it.trim() }
                 .map { if (it == oldName) trimmedNew else it }
                 .filter { it.isNotBlank() }
-                .distinct() // Éviter les doublons
-            prefs[CATEGORIES_KEY] = updated.joinToString(",")
+                .distinct()
+            prefs[RECETTES_CATEGORIES_KEY] = updated.joinToString(",")
         }
     }
+
+    // --- Catégories Dépenses ---
+    val depensesCategories: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        val csv = prefs[DEPENSES_CATEGORIES_KEY] ?: DEFAULT_DEPENSES_CSV
+        csv.split(",").filter { it.isNotBlank() }.map { it.trim() }.toSet()
+    }
+
+    suspend fun setDepensesCategories(categories: Set<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[DEPENSES_CATEGORIES_KEY] = categories.filter { it.isNotBlank() }.joinToString(",")
+        }
+    }
+
+    suspend fun addDepensesCategory(category: String) {
+        val trimmed = category.trim()
+        if (trimmed.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val csv = prefs[DEPENSES_CATEGORIES_KEY] ?: DEFAULT_DEPENSES_CSV
+            val current = csv.split(",").filter { it.isNotBlank() }.map { it.trim() }.toMutableList()
+            if (!current.contains(trimmed)) {
+                current.add(trimmed)
+            }
+            prefs[DEPENSES_CATEGORIES_KEY] = current.joinToString(",")
+        }
+    }
+
+    suspend fun removeDepensesCategory(category: String) {
+        context.dataStore.edit { prefs ->
+            val csv = prefs[DEPENSES_CATEGORIES_KEY] ?: DEFAULT_DEPENSES_CSV
+            val current = csv.split(",").filter { it.isNotBlank() && it.trim() != category }.map { it.trim() }
+            prefs[DEPENSES_CATEGORIES_KEY] = current.joinToString(",")
+        }
+    }
+
+    suspend fun updateDepensesCategory(oldName: String, newName: String) {
+        val trimmedNew = newName.trim()
+        if (trimmedNew.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val csv = prefs[DEPENSES_CATEGORIES_KEY] ?: DEFAULT_DEPENSES_CSV
+            val updated = csv.split(",")
+                .map { it.trim() }
+                .map { if (it == oldName) trimmedNew else it }
+                .filter { it.isNotBlank() }
+                .distinct()
+            prefs[DEPENSES_CATEGORIES_KEY] = updated.joinToString(",")
+        }
+    }
+
+    // --- Ancienne méthode (pour compatibilité) ---
+    @Deprecated("Utiliser recettesCategories ou depensesCategories")
+    val categories: Flow<Set<String>> = recettesCategories
 
     // --- Langue ---
     val language: Flow<String> = context.dataStore.data.map { prefs ->

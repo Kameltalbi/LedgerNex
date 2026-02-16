@@ -3,6 +3,7 @@ package com.ledgernex.app
 import android.app.Application
 import android.util.Log
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import com.ledgernex.app.data.database.LedgerNexDatabase
 import com.ledgernex.app.data.datastore.SettingsDataStore
 import com.ledgernex.app.data.repository.AccountRepositoryImpl
@@ -52,8 +53,19 @@ class LedgerNexApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Firebase
-        FirebaseApp.initializeApp(this)
+        // Initialize Firebase manually with configuration
+        try {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                val options = FirebaseOptions.Builder()
+                    .setApplicationId("1:846871498556:android:c4541eebaa5fcb6c759839")
+                    .setProjectId("ledgernex")
+                    .setApiKey("***REMOVED***")
+                    .build()
+                FirebaseApp.initializeApp(this, options)
+            }
+        } catch (e: Exception) {
+            Log.e("LedgerNexApp", "Firebase init error: ${e.message}")
+        }
 
         database = LedgerNexDatabase.getInstance(this)
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ledgernex.app.LedgerNexApp
 import com.ledgernex.app.data.entity.AccountType
+import com.ledgernex.app.data.entity.CompanyAccount
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.OnSurfaceSecondary
@@ -66,6 +68,8 @@ fun ComptesScreen(app: LedgerNexApp) {
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editingAccount by remember { mutableStateOf<CompanyAccount?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val currency by app.settingsDataStore.currency.collectAsState(initial = "")
 
@@ -137,7 +141,15 @@ fun ComptesScreen(app: LedgerNexApp) {
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.accounts, key = { it.account.id }) { awb ->
-                        AccountCard(awb, currency) { viewModel.deleteAccount(awb.account) }
+                        AccountCard(
+                            awb = awb,
+                            currency = currency,
+                            onEdit = {
+                                editingAccount = awb.account
+                                showEditDialog = true
+                            },
+                            onDelete = { viewModel.deleteAccount(awb.account) }
+                        )
                     }
                 }
             }
@@ -153,12 +165,28 @@ fun ComptesScreen(app: LedgerNexApp) {
             }
         )
     }
+
+    if (showEditDialog && editingAccount != null) {
+        EditAccountDialog(
+            account = editingAccount!!,
+            onDismiss = { 
+                showEditDialog = false
+                editingAccount = null
+            },
+            onConfirm = { updatedAccount ->
+                viewModel.updateAccount(updatedAccount)
+                showEditDialog = false
+                editingAccount = null
+            }
+        )
+    }
 }
 
 @Composable
 private fun AccountCard(
     awb: AccountWithBalance,
     currency: String,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM")
@@ -186,13 +214,10 @@ private fun AccountCard(
                         color = OnSurfaceSecondary
                     )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = formatCurrency(awb.solde, currency),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = if (awb.solde >= 0) GreenAccent else RedError
-                    )
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Modifier", tint = BluePrimary)
+                    }
                     IconButton(onClick = onDelete) {
                         Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = Color.Gray)
                     }
@@ -312,6 +337,89 @@ private fun AddAccountDialog(
                 onConfirm(nom, type, solde)
             }) {
                 Text("Créer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditAccountDialog(
+    account: CompanyAccount,
+    onDismiss: () -> Unit,
+    onConfirm: (CompanyAccount) -> Unit
+) {
+    var nom by remember { mutableStateOf(account.nom) }
+    var type by remember { mutableStateOf(account.type) }
+    var soldeInitial by remember { mutableStateOf(account.soldeInitial.toString()) }
+    var actif by remember { mutableStateOf(account.actif) }
+    var typeExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Modifier le compte") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = nom,
+                    onValueChange = { nom = it },
+                    label = { Text("Nom du compte") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = typeExpanded,
+                    onExpandedChange = { typeExpanded = !typeExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = type.name,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false }
+                    ) {
+                        AccountType.values().forEach { t ->
+                            DropdownMenuItem(
+                                text = { Text(t.name) },
+                                onClick = {
+                                    type = t
+                                    typeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = soldeInitial,
+                    onValueChange = { soldeInitial = it },
+                    label = { Text("Solde initial") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val solde = soldeInitial.toDoubleOrNull() ?: return@TextButton
+                if (nom.isBlank()) return@TextButton
+                onConfirm(
+                    account.copy(
+                        nom = nom,
+                        type = type,
+                        soldeInitial = solde,
+                        actif = actif
+                    )
+                )
+            }) {
+                Text("Enregistrer")
             }
         },
         dismissButton = {

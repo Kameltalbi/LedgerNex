@@ -9,6 +9,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,17 +38,28 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     var startDestination by remember { mutableStateOf<String?>(null) }
                     var showAuth by remember { mutableStateOf(false) }
+                    
+                    // Monitor auth state
+                    val currentUser by app.cloudSyncManager.currentUser.collectAsState()
 
                     LaunchedEffect(Unit) {
                         val onboardingDone = app.settingsDataStore.isOnboardingDone()
                         val isLoggedIn = app.cloudSyncManager.isLoggedIn()
                         
-                        if (!isLoggedIn && onboardingDone) {
-                            // Onboarding fait mais pas connecté → proposer auth
+                        if (!isLoggedIn) {
+                            // Pas connecté → toujours montrer auth
                             showAuth = true
                         }
                         
                         startDestination = if (onboardingDone) Screen.Dashboard.route else Screen.Onboarding.route
+                    }
+                    
+                    // Detect logout and return to auth screen
+                    LaunchedEffect(currentUser) {
+                        if (currentUser == null && !showAuth) {
+                            // User logged out, force show auth
+                            showAuth = true
+                        }
                     }
 
                     when {
