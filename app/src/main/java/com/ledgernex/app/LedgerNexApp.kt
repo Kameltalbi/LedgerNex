@@ -59,7 +59,6 @@ class LedgerNexApp : Application() {
                 val options = FirebaseOptions.Builder()
                     .setApplicationId("1:846871498556:android:c4541eebaa5fcb6c759839")
                     .setProjectId("ledgernex")
-                    .setApiKey("***REMOVED***")
                     .build()
                 FirebaseApp.initializeApp(this, options)
             }
