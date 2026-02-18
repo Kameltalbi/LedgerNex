@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -57,6 +58,7 @@ import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +82,7 @@ import com.ledgernex.app.ui.util.formatCurrency
 import com.ledgernex.app.ui.viewmodel.TransactionsViewModel
 import java.time.LocalDate
 import java.time.YearMonth
+import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -93,7 +96,9 @@ fun TransactionsScreen(app: LedgerNexApp) {
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showImportResult by remember { mutableStateOf<ImportResult?>(null) }
+    val scope = rememberCoroutineScope()
     val currency by app.settingsDataStore.currency.collectAsState(initial = "")
 
     val csvLauncher = rememberLauncherForActivityResult(
@@ -102,19 +107,21 @@ fun TransactionsScreen(app: LedgerNexApp) {
         uri?.let {
             val context = app.applicationContext
             val (transactions, errors) = CsvTransactionImporter.importFromUri(context, it)
-            if (transactions.isNotEmpty()) {
-                val (successCount, importErrors) = viewModel.importTransactions(transactions)
-                showImportResult = ImportResult(
-                    successCount = successCount,
-                    errorCount = errors.size + importErrors.size,
-                    errors = errors + importErrors
-                )
-            } else {
-                showImportResult = ImportResult(
-                    successCount = 0,
-                    errorCount = errors.size,
-                    errors = errors
-                )
+            scope.launch {
+                if (transactions.isNotEmpty()) {
+                    val (successCount, importErrors) = viewModel.importTransactions(transactions)
+                    showImportResult = ImportResult(
+                        successCount = successCount,
+                        errorCount = errors.size + importErrors.size,
+                        errors = errors + importErrors
+                    )
+                } else {
+                    showImportResult = ImportResult(
+                        successCount = 0,
+                        errorCount = errors.size,
+                        errors = errors
+                    )
+                }
             }
         }
     }
@@ -156,6 +163,12 @@ fun TransactionsScreen(app: LedgerNexApp) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Importer CSV")
             }
+            Text(
+                text = "Astuce: si « Récents » est vide, appuyez sur le menu (≡) en haut à gauche du sélecteur puis choisissez « Téléchargements » pour voir le fichier.",
+                fontSize = 11.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp)
+            )
 
             // Sélecteur mois
             Row(
@@ -211,9 +224,13 @@ fun TransactionsScreen(app: LedgerNexApp) {
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.transactions, key = { it.id }) { tx ->
-                        TransactionCard(tx, currency, dateFmt) {
-                            viewModel.deleteTransaction(tx)
-                        }
+                        TransactionCard(
+                            tx = tx,
+                            currency = currency,
+                            dateFmt = dateFmt,
+                            onEdit = { editingTransaction = tx },
+                            onDelete = { viewModel.deleteTransaction(tx) }
+                        )
                     }
                 }
             }
@@ -236,32 +253,49 @@ fun TransactionsScreen(app: LedgerNexApp) {
         )
     }
 
+    // Dialogue modification transaction (libellé, catégorie, etc.)
+    editingTransaction?.let { tx ->
+        val categories by app.settingsDataStore.categories.collectAsState(initial = emptySet())
+        val accounts by app.accountRepository.getAll().collectAsState(initial = emptyList())
+        EditTransactionDialog(
+            transaction = tx,
+            categories = categories,
+            accounts = accounts,
+            onDismiss = { editingTransaction = null },
+            onConfirm = { updated ->
+                viewModel.updateTransaction(updated)
+                editingTransaction = null
+            }
+        )
+    }
+
     // Dialogue résultat import CSV
     showImportResult?.let { result ->
         AlertDialog(
             onDismissRequest = { showImportResult = null },
             title = { Text("Résultat de l'import") },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text(
-                        "${result.successCount} transactions importées avec succès",
+                        "${result.successCount} transaction(s) importée(s) avec succès",
                         color = GreenAccent,
                         fontWeight = FontWeight.Bold
                     )
                     if (result.errorCount > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "${result.errorCount} erreurs",
+                            "${result.errorCount} ligne(s) ignorée(s) ou en erreur",
                             color = RedError,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        // Show first 5 errors
-                        for (i in 0 until minOf(result.errors.size, 5)) {
+                        Text("Détail (exemples) :", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        for (i in 0 until minOf(result.errors.size, 8)) {
                             Text("• ${result.errors[i]}", fontSize = 11.sp, color = Color.Gray)
                         }
-                        if (result.errors.size > 5) {
-                            Text("... et ${result.errors.size - 5} autres erreurs", fontSize = 11.sp, color = Color.Gray)
+                        if (result.errors.size > 8) {
+                            Text("... et ${result.errors.size - 8} autres", fontSize = 11.sp, color = Color.Gray)
                         }
                     }
                 }
@@ -280,6 +314,7 @@ private fun TransactionCard(
     tx: Transaction,
     currency: String,
     dateFmt: DateTimeFormatter,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isRecette = tx.type == TransactionType.RECETTE
@@ -320,12 +355,17 @@ private fun TransactionCard(
                     color = color,
                     fontSize = 16.sp
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Supprimer",
-                        tint = Color.Gray
-                    )
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Modifier", tint = BluePrimary)
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            tint = Color.Gray
+                        )
+                    }
                 }
             }
         }
@@ -534,5 +574,125 @@ private fun AddTransactionDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Annuler") }
         }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun EditTransactionDialog(
+    transaction: Transaction,
+    categories: Set<String>,
+    accounts: List<CompanyAccount>,
+    onDismiss: () -> Unit,
+    onConfirm: (Transaction) -> Unit
+) {
+    var type by remember(transaction.id) { mutableStateOf(transaction.type) }
+    var libelle by remember(transaction.id) { mutableStateOf(transaction.libelle) }
+    var objet by remember(transaction.id) { mutableStateOf(transaction.objet) }
+    var montant by remember(transaction.id) { mutableStateOf(transaction.montantTTC.toString()) }
+    var categorie by remember(transaction.id) { mutableStateOf(transaction.categorie) }
+    var selectedAccountId by remember(transaction.id) { mutableStateOf<Long?>(transaction.accountId) }
+    var accountExpanded by remember(transaction.id) { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Modifier la transaction", fontWeight = FontWeight.Bold, color = BluePrimary)
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Type", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (type == TransactionType.DEPENSE) RedError else Color.Transparent)
+                            .border(1.dp, if (type == TransactionType.DEPENSE) RedError else Color.Gray, RoundedCornerShape(12.dp))
+                            .clickable { type = TransactionType.DEPENSE },
+                        contentAlignment = Alignment.Center
+                    ) { Text("▼ Dépense", color = if (type == TransactionType.DEPENSE) Color.White else Color.Gray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (type == TransactionType.RECETTE) GreenAccent else Color.Transparent)
+                            .border(1.dp, if (type == TransactionType.RECETTE) GreenAccent else Color.Gray, RoundedCornerShape(12.dp))
+                            .clickable { type = TransactionType.RECETTE },
+                        contentAlignment = Alignment.Center
+                    ) { Text("▲ Recette", color = if (type == TransactionType.RECETTE) Color.White else Color.Gray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+                }
+                OutlinedTextField(value = libelle, onValueChange = { libelle = it }, label = { Text("Libellé") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = objet, onValueChange = { objet = it }, label = { Text("Objet / Description") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(value = montant, onValueChange = { montant = it }, label = { Text("Montant TTC") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                Text("Catégorie", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                if (categories.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        categories.sorted().forEach { cat ->
+                            FilterChip(
+                                selected = categorie == cat,
+                                onClick = { categorie = cat },
+                                label = { Text(cat, fontSize = 12.sp) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = BluePrimary, selectedLabelColor = Color.White)
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(value = categorie, onValueChange = { categorie = it }, label = { Text("Ou saisir une catégorie") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                if (accounts.isNotEmpty()) {
+                    ExposedDropdownMenuBox(expanded = accountExpanded, onExpandedChange = { accountExpanded = !accountExpanded }) {
+                        OutlinedTextField(
+                            value = accounts.firstOrNull { it.id == selectedAccountId }?.nom ?: "Sélectionner un compte",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Compte") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountExpanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(expanded = accountExpanded, onDismissRequest = { accountExpanded = false }) {
+                            accounts.forEach { acc ->
+                                DropdownMenuItem(
+                                    text = { Text(acc.nom) },
+                                    onClick = { selectedAccountId = acc.id; accountExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val m = montant.toDoubleOrNull() ?: return@Button
+                    val accId = selectedAccountId ?: transaction.accountId
+                    if (libelle.isBlank() || categorie.isBlank()) return@Button
+                    onConfirm(
+                        transaction.copy(
+                            type = type,
+                            libelle = libelle.trim(),
+                            objet = objet.trim(),
+                            montantTTC = m,
+                            categorie = categorie.trim(),
+                            accountId = accId,
+                            isModified = true
+                        )
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Enregistrer") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
     )
 }

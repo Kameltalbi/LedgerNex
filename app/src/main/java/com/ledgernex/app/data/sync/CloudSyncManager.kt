@@ -62,7 +62,10 @@ class CloudSyncManager(
     suspend fun signIn(email: String, password: String): Result<FirebaseUser> {
         return try {
             _syncStatus.value = SyncStatus.Syncing
-            val result = auth.signInWithEmailAndPassword(email, password).await()
+            val cleanEmail = email.trim()
+            val cleanPassword = password.trim()
+            if (cleanEmail.isBlank()) return Result.failure(Exception("L'email ne peut pas être vide"))
+            val result = auth.signInWithEmailAndPassword(cleanEmail, cleanPassword).await()
             val user = result.user
             _currentUser.value = user
             _syncStatus.value = SyncStatus.Idle
@@ -77,7 +80,10 @@ class CloudSyncManager(
     suspend fun signUp(email: String, password: String): Result<FirebaseUser> {
         return try {
             _syncStatus.value = SyncStatus.Syncing
-            val result = auth.createUserWithEmailAndPassword(email, password).await()
+            val cleanEmail = email.trim()
+            val cleanPassword = password.trim()
+            if (cleanEmail.isBlank()) return Result.failure(Exception("L'email ne peut pas être vide"))
+            val result = auth.createUserWithEmailAndPassword(cleanEmail, cleanPassword).await()
             val user = result.user
             _currentUser.value = user
             if (user != null) {

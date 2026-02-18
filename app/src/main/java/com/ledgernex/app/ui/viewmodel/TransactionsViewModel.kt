@@ -101,22 +101,18 @@ class TransactionsViewModel(
         }
     }
 
-    fun importTransactions(transactions: List<Transaction>): Pair<Int, List<String>> {
+    suspend fun importTransactions(transactions: List<Transaction>): Pair<Int, List<String>> {
         val errors = mutableListOf<String>()
         var successCount = 0
-        
-        viewModelScope.launch {
-            transactions.forEach { transaction ->
-                try {
-                    transactionRepo.insert(transaction)
-                    successCount++
-                } catch (e: Exception) {
-                    errors.add("Erreur insertion: ${e.message}")
-                }
+        transactions.forEach { transaction ->
+            try {
+                transactionRepo.insert(transaction)
+                successCount++
+            } catch (e: Exception) {
+                errors.add("Erreur insertion: ${e.message}")
             }
-            loadTransactions()
         }
-        
+        loadTransactions()
         return Pair(successCount, errors)
     }
 
