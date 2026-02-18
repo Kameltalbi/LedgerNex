@@ -159,19 +159,21 @@ fun AssetsScreen(app: LedgerNexApp, navController: NavController) {
         )
     }
 
-    if (showEditDialog && editingAsset != null) {
-        EditAssetDialog(
-            assetDetail = editingAsset!!,
-            onDismiss = {
-                showEditDialog = false
-                editingAsset = null
-            },
-            onConfirm = { nom, dateAchat, montant, quantite, duree ->
-                viewModel.updateAsset(editingAsset!!.asset, nom, dateAchat, montant, quantite, duree)
-                showEditDialog = false
-                editingAsset = null
-            }
-        )
+    if (showEditDialog) {
+        editingAsset?.let { assetToEdit ->
+            EditAssetDialog(
+                assetDetail = assetToEdit,
+                onDismiss = {
+                    showEditDialog = false
+                    editingAsset = null
+                },
+                onConfirm = { nom, dateAchat, montant, quantite, duree ->
+                    viewModel.updateAsset(assetToEdit.asset, nom, dateAchat, montant, quantite, duree)
+                    showEditDialog = false
+                    editingAsset = null
+                }
+            )
+        }
     }
 }
 

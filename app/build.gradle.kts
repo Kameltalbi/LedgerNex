@@ -5,6 +5,13 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+// Export Room schema for migrations
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+}
+
 android {
     namespace = "com.ledgernex.app"
     compileSdk = 34

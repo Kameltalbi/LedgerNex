@@ -748,13 +748,14 @@ Row(
             confirmButton = {
                 TextButton(onClick = {
                     val newName = editCategoryInput.trim()
-                    if (newName.isNotBlank() && newName != editingCategory) {
+                    val category = editingCategory
+                    if (newName.isNotBlank() && category != null && newName != category) {
                         scope.launch {
                             when (editingCategoryType) {
-                                com.ledgernex.app.data.entity.TransactionType.RECETTE -> 
-                                    dataStore.updateRecettesCategory(editingCategory!!, newName)
-                                com.ledgernex.app.data.entity.TransactionType.DEPENSE -> 
-                                    dataStore.updateDepensesCategory(editingCategory!!, newName)
+                                com.ledgernex.app.data.entity.TransactionType.RECETTE ->
+                                    dataStore.updateRecettesCategory(category, newName)
+                                com.ledgernex.app.data.entity.TransactionType.DEPENSE ->
+                                    dataStore.updateDepensesCategory(category, newName)
                                 else -> {}
                             }
                         }

@@ -140,10 +140,10 @@ fun AuthScreen(
         }
 
         // Message d'erreur
-        if (errorMessage != null) {
+        errorMessage?.let { msg ->
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = errorMessage!!,
+                text = msg,
                 color = RedError,
                 fontSize = 12.sp
             )

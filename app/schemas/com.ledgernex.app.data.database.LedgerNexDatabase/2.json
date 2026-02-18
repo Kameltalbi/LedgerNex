@@ -1,0 +1,287 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "86253047a949bef5b18922db45b14440",
+    "entities": [
+      {
+        "tableName": "company_accounts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nom` TEXT NOT NULL, `type` TEXT NOT NULL, `soldeInitial` REAL NOT NULL, `actif` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nom",
+            "columnName": "nom",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "soldeInitial",
+            "columnName": "soldeInitial",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actif",
+            "columnName": "actif",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "transactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `dateEpoch` INTEGER NOT NULL, `libelle` TEXT NOT NULL, `objet` TEXT NOT NULL, `montantTTC` REAL NOT NULL, `categorie` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `recurrenceId` INTEGER, `isModified` INTEGER NOT NULL, FOREIGN KEY(`accountId`) REFERENCES `company_accounts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateEpoch",
+            "columnName": "dateEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "libelle",
+            "columnName": "libelle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "objet",
+            "columnName": "objet",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "montantTTC",
+            "columnName": "montantTTC",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categorie",
+            "columnName": "categorie",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recurrenceId",
+            "columnName": "recurrenceId",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isModified",
+            "columnName": "isModified",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_transactions_accountId",
+            "unique": false,
+            "columnNames": [
+              "accountId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transactions_accountId` ON `${TABLE_NAME}` (`accountId`)"
+          },
+          {
+            "name": "index_transactions_recurrenceId",
+            "unique": false,
+            "columnNames": [
+              "recurrenceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transactions_recurrenceId` ON `${TABLE_NAME}` (`recurrenceId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "company_accounts",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "accountId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "recurrence_templates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `libelle` TEXT NOT NULL, `objet` TEXT NOT NULL, `montantTTC` REAL NOT NULL, `categorie` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `frequence` TEXT NOT NULL, `dateDebutEpoch` INTEGER NOT NULL, `dateFinEpoch` INTEGER, `active` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "libelle",
+            "columnName": "libelle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "objet",
+            "columnName": "objet",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "montantTTC",
+            "columnName": "montantTTC",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categorie",
+            "columnName": "categorie",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frequence",
+            "columnName": "frequence",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateDebutEpoch",
+            "columnName": "dateDebutEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateFinEpoch",
+            "columnName": "dateFinEpoch",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "active",
+            "columnName": "active",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "assets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nom` TEXT NOT NULL, `dateAchatEpoch` INTEGER NOT NULL, `montantTTC` REAL NOT NULL, `quantite` INTEGER NOT NULL, `dureeAmortissement` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nom",
+            "columnName": "nom",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateAchatEpoch",
+            "columnName": "dateAchatEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "montantTTC",
+            "columnName": "montantTTC",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantite",
+            "columnName": "quantite",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dureeAmortissement",
+            "columnName": "dureeAmortissement",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '86253047a949bef5b18922db45b14440')"
+    ]
+  }
+}

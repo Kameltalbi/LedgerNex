@@ -166,9 +166,10 @@ fun ComptesScreen(app: LedgerNexApp) {
         )
     }
 
-    if (showEditDialog && editingAccount != null) {
+    val accountToEdit = editingAccount
+    if (showEditDialog && accountToEdit != null) {
         EditAccountDialog(
-            account = editingAccount!!,
+            account = accountToEdit,
             onDismiss = { 
                 showEditDialog = false
                 editingAccount = null

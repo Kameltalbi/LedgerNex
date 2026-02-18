@@ -62,8 +62,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    val destination = startDestination
                     when {
-                        startDestination == null -> {
+                        destination == null -> {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = BluePrimary)
                             }
@@ -81,7 +82,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         else -> {
-                            AppNavigation(app, startDestination = startDestination!!)
+                            AppNavigation(app, startDestination = destination)
                         }
                     }
                 }

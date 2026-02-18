@@ -66,7 +66,8 @@ class CloudSyncManager(
             val user = result.user
             _currentUser.value = user
             _syncStatus.value = SyncStatus.Idle
-            Result.success(user!!)
+            user?.let { Result.success(it) }
+                ?: Result.failure(Exception("Connexion réussie mais utilisateur null"))
         } catch (e: Exception) {
             _syncStatus.value = SyncStatus.Error(e.message ?: "Erreur de connexion")
             Result.failure(e)
@@ -79,10 +80,14 @@ class CloudSyncManager(
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user
             _currentUser.value = user
-            // Créer le document utilisateur dans Firestore
-            createUserDocument(user!!.uid)
-            _syncStatus.value = SyncStatus.Idle
-            Result.success(user)
+            if (user != null) {
+                createUserDocument(user.uid)
+                _syncStatus.value = SyncStatus.Idle
+                Result.success(user)
+            } else {
+                _syncStatus.value = SyncStatus.Error("Inscription échouée : utilisateur null")
+                Result.failure(Exception("Utilisateur null après inscription"))
+            }
         } catch (e: Exception) {
             _syncStatus.value = SyncStatus.Error(e.message ?: "Erreur d'inscription")
             Result.failure(e)

@@ -237,8 +237,7 @@ fun TransactionsScreen(app: LedgerNexApp) {
     }
 
     // Dialogue résultat import CSV
-    if (showImportResult != null) {
-        val result = showImportResult!!
+    showImportResult?.let { result ->
         AlertDialog(
             onDismissRequest = { showImportResult = null },
             title = { Text("Résultat de l'import") },
