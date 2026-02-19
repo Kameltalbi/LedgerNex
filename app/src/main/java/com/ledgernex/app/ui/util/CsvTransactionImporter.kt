@@ -41,6 +41,16 @@ class CsvTransactionImporter {
             val errors = mutableListOf<String>()
 
             try {
+                // Take persistable permission for the URI
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri, 
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: Exception) {
+                    // Permission might already be granted, continue
+                }
+                
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     val allLines = BufferedReader(InputStreamReader(inputStream)).readLines()
                     if (allLines.isEmpty()) {
@@ -79,7 +89,9 @@ class CsvTransactionImporter {
                             }
                         }
                     }
-                }
+                } ?: errors.add("Impossible d'ouvrir le fichier")
+            } catch (e: SecurityException) {
+                errors.add("Permission refusée: ${e.message}")
             } catch (e: Exception) {
                 errors.add("Erreur lors de la lecture du fichier: ${e.message}")
             }

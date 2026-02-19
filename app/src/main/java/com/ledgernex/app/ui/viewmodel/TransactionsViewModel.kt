@@ -3,12 +3,16 @@ package com.ledgernex.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.ledgernex.app.data.entity.AccountType
+import com.ledgernex.app.data.entity.CompanyAccount
 import com.ledgernex.app.data.entity.Transaction
 import com.ledgernex.app.data.entity.TransactionType
+import com.ledgernex.app.domain.repository.AccountRepository
 import com.ledgernex.app.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -20,11 +24,13 @@ data class TransactionsState(
     val searchQuery: String = "",
     val filterAccountId: Long? = null,
     val filterCategorie: String? = null,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val selectedTransactionIds: Set<Long> = emptySet()
 )
 
 class TransactionsViewModel(
-    private val transactionRepo: TransactionRepository
+    private val transactionRepo: TransactionRepository,
+    private val accountRepo: AccountRepository? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TransactionsState())
@@ -59,6 +65,37 @@ class TransactionsViewModel(
                     _state.value = _state.value.copy(transactions = list, isLoading = false)
                 }
             }
+        }
+    }
+
+    fun toggleTransactionSelection(transactionId: Long) {
+        val currentSelected = _state.value.selectedTransactionIds
+        _state.value = _state.value.copy(
+            selectedTransactionIds = if (currentSelected.contains(transactionId)) {
+                currentSelected - transactionId
+            } else {
+                currentSelected + transactionId
+            }
+        )
+    }
+
+    fun selectAllTransactions() {
+        _state.value = _state.value.copy(
+            selectedTransactionIds = _state.value.transactions.map { it.id }.toSet()
+        )
+    }
+
+    fun deselectAllTransactions() {
+        _state.value = _state.value.copy(selectedTransactionIds = emptySet())
+    }
+
+    fun deleteSelectedTransactions() {
+        viewModelScope.launch {
+            val selectedIds = _state.value.selectedTransactionIds
+            val transactionsToDelete = _state.value.transactions.filter { it.id in selectedIds }
+            transactionsToDelete.forEach { transactionRepo.delete(it) }
+            _state.value = _state.value.copy(selectedTransactionIds = emptySet())
+            loadTransactions()
         }
     }
 
@@ -104,14 +141,67 @@ class TransactionsViewModel(
     suspend fun importTransactions(transactions: List<Transaction>): Pair<Int, List<String>> {
         val errors = mutableListOf<String>()
         var successCount = 0
+        var duplicateCount = 0
+        
+        // Get existing transactions to check for duplicates
+        val existingTransactions = transactionRepo.getAll().first()
+        val existingKeys = existingTransactions.map { 
+            "${it.dateEpoch}-${it.montantTTC}-${it.libelle}-${it.accountId}"
+        }.toSet()
+        
+        // Create missing accounts and map old IDs to new IDs
+        val accountIdMapping = mutableMapOf<Long, Long>()
+        accountRepo?.let { repo ->
+            val existingAccounts = repo.getAllAccounts().map { it.id to it }.toMap()
+            val requiredAccountIds = transactions.map { it.accountId }.toSet()
+            
+            requiredAccountIds.forEach { oldAccountId ->
+                if (existingAccounts.containsKey(oldAccountId)) {
+                    accountIdMapping[oldAccountId] = oldAccountId
+                } else {
+                    try {
+                        val newAccount = CompanyAccount(
+                            id = 0,
+                            nom = "Compte Import $oldAccountId",
+                            soldeInitial = 0.0,
+                            actif = true,
+                            type = AccountType.BANK
+                        )
+                        val newId = repo.insert(newAccount)
+                        accountIdMapping[oldAccountId] = newId
+                    } catch (e: Exception) {
+                        errors.add("Erreur création compte $oldAccountId: ${e.message}")
+                        accountIdMapping[oldAccountId] = 1L
+                    }
+                }
+            }
+        }
+        
+        // Import transactions with mapped account IDs, skipping duplicates
         transactions.forEach { transaction ->
             try {
-                transactionRepo.insert(transaction)
-                successCount++
+                val mappedAccountId = accountIdMapping[transaction.accountId] ?: transaction.accountId
+                val transactionKey = "${transaction.dateEpoch}-${transaction.montantTTC}-${transaction.libelle}-$mappedAccountId"
+                
+                if (existingKeys.contains(transactionKey)) {
+                    duplicateCount++
+                } else {
+                    val adjustedTransaction = transaction.copy(
+                        id = 0,
+                        accountId = mappedAccountId
+                    )
+                    transactionRepo.insert(adjustedTransaction)
+                    successCount++
+                }
             } catch (e: Exception) {
                 errors.add("Erreur insertion: ${e.message}")
             }
         }
+        
+        if (duplicateCount > 0) {
+            errors.add("$duplicateCount transaction(s) ignorée(s) (doublons)")
+        }
+        
         loadTransactions()
         return Pair(successCount, errors)
     }
@@ -143,11 +233,12 @@ class TransactionsViewModel(
     }
 
     class Factory(
-        private val transactionRepo: TransactionRepository
+        private val transactionRepo: TransactionRepository,
+        private val accountRepo: AccountRepository? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return TransactionsViewModel(transactionRepo) as T
+            return TransactionsViewModel(transactionRepo, accountRepo) as T
         }
     }
 }

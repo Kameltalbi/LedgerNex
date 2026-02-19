@@ -13,8 +13,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
             LedgerNexTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
+                    val scope = rememberCoroutineScope()
                     var startDestination by remember { mutableStateOf<String?>(null) }
                     var showAuth by remember { mutableStateOf(false) }
                     
@@ -72,9 +75,9 @@ class MainActivity : ComponentActivity() {
                         showAuth -> {
                             AuthScreen(
                                 syncManager = app.cloudSyncManager,
-                                onAuthSuccess = { 
+                                onAuthSuccess = {
                                     showAuth = false
-                                    // Lancer sync après connexion
+                                    scope.launch { app.cloudSyncManager.syncAll() }
                                 },
                                 onSkip = {
                                     showAuth = false

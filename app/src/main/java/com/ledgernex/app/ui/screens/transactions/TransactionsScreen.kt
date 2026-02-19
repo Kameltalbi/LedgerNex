@@ -92,7 +92,7 @@ private data class ImportResult(val successCount: Int, val errorCount: Int, val 
 @Composable
 fun TransactionsScreen(app: LedgerNexApp) {
     val viewModel: TransactionsViewModel = viewModel(
-        factory = TransactionsViewModel.Factory(app.transactionRepository)
+        factory = TransactionsViewModel.Factory(app.transactionRepository, app.accountRepository)
     )
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }

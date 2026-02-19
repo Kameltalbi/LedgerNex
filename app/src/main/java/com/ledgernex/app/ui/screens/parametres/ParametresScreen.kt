@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.ledgernex.app.LedgerNexApp
 import com.ledgernex.app.data.datastore.SettingsDataStore
+import com.ledgernex.app.data.sync.CloudSyncManager
 import com.ledgernex.app.ui.theme.BluePrimary
 import com.ledgernex.app.ui.theme.GreenAccent
 import com.ledgernex.app.ui.theme.RedError
@@ -678,8 +679,9 @@ Row(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Déconnexion Cloud ---
+        // --- Compte Cloud et synchronisation ---
         val isLoggedIn = app.cloudSyncManager.isLoggedIn()
+        val syncStatus by app.cloudSyncManager.syncStatus.collectAsState(initial = CloudSyncManager.SyncStatus.Idle)
         if (isLoggedIn) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -698,11 +700,45 @@ Row(
                         fontSize = 14.sp,
                         color = Color.Gray
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Synchronisez pour voir vos transactions sur tous vos appareils (émulateur, téléphone).",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                app.cloudSyncManager.syncAll()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BluePrimary),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = syncStatus !is CloudSyncManager.SyncStatus.Syncing
+                    ) {
+                        Text(
+                            when (syncStatus) {
+                                is CloudSyncManager.SyncStatus.Syncing -> "Synchronisation…"
+                                is CloudSyncManager.SyncStatus.Success -> "Synchroniser (${(syncStatus as CloudSyncManager.SyncStatus.Success).itemsSynced} éléments)"
+                                is CloudSyncManager.SyncStatus.Error -> "Synchroniser (erreur)"
+                                else -> "Synchroniser maintenant"
+                            }
+                        )
+                    }
+                    if (syncStatus is CloudSyncManager.SyncStatus.Error) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = (syncStatus as CloudSyncManager.SyncStatus.Error).message,
+                            fontSize = 12.sp,
+                            color = RedError
+                        )
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
                             app.cloudSyncManager.signOut()
-                            // Redémarrer l'app pour retourner à l'écran d'auth
                             navController.navigate("dashboard") {
                                 popUpTo(0) { inclusive = true }
                             }

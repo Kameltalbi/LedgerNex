@@ -111,85 +111,71 @@ class CloudSyncManager(
     // ==================== SYNCHRONISATION ====================
 
     /**
-     * Synchronise toutes les données : Local → Cloud puis Cloud → Local
+     * Synchronise toutes les données : Local → Cloud puis Cloud → Local.
+     * Ordre important : télécharger les comptes avant les transactions (clé étrangère).
      */
     suspend fun syncAll(): SyncStatus {
         val user = auth.currentUser ?: return SyncStatus.Error("Non connecté")
         
         return try {
             _syncStatus.value = SyncStatus.Syncing
-            
             var totalSynced = 0
-            
-            // 1. Upload local → Cloud
-            totalSynced += uploadTransactions(user.uid)
+
+            // 1. Envoyer local → Cloud
             totalSynced += uploadAccounts(user.uid)
+            totalSynced += uploadTransactions(user.uid)
             totalSynced += uploadAssets(user.uid)
-            
-            // 2. Download Cloud → Local (pour récupérer les données d'autres appareils)
-            totalSynced += downloadTransactions(user.uid)
-            totalSynced += downloadAccounts(user.uid)
+
+            // 2. Récupérer Cloud → Local (comptes d'abord pour la clé étrangère des transactions)
+            val (accountCount, accountIdMap) = downloadAccounts(user.uid)
+            totalSynced += accountCount
+            totalSynced += downloadTransactions(user.uid, accountIdMap)
             totalSynced += downloadAssets(user.uid)
-            
+
             val successStatus = SyncStatus.Success(totalSynced)
             _syncStatus.value = successStatus
             successStatus
-            
         } catch (e: Exception) {
-            val errorStatus = SyncStatus.Error(e.message ?: "Erreur de synchronisation")
+            val msg = e.message ?: "Erreur de synchronisation"
+            val errorStatus = SyncStatus.Error("$msg (vérifiez Internet et les règles Firestore)")
             _syncStatus.value = errorStatus
             errorStatus
         }
     }
 
     /**
-     * Push automatique d'une transaction vers le cloud
+     * Push une transaction vers le cloud (lance une exception en cas d'échec)
      */
     suspend fun pushTransaction(transaction: Transaction) {
         val user = auth.currentUser ?: return
-        
-        try {
-            val transactionData = hashMapOf(
-                "id" to transaction.id,
-                "type" to transaction.type.name,
-                "dateEpoch" to transaction.dateEpoch,
-                "libelle" to transaction.libelle,
-                "objet" to transaction.objet,
-                "montantTTC" to transaction.montantTTC,
-                "categorie" to transaction.categorie,
-                "accountId" to transaction.accountId,
-                FIELD_LAST_MODIFIED to System.currentTimeMillis(),
-                FIELD_DEVICE_ID to android.os.Build.MODEL
-            )
-            
-            db.collection(COLLECTION_USERS)
-                .document(user.uid)
-                .collection(COLLECTION_TRANSACTIONS)
-                .document(transaction.id.toString())
-                .set(transactionData, SetOptions.merge())
-                .await()
-                
-        } catch (e: Exception) {
-            // Silencieux - la donnée reste en local
-            println("Push transaction failed: ${e.message}")
-        }
+        val transactionData = hashMapOf(
+            "id" to transaction.id,
+            "type" to transaction.type.name,
+            "dateEpoch" to transaction.dateEpoch,
+            "libelle" to transaction.libelle,
+            "objet" to transaction.objet,
+            "montantTTC" to transaction.montantTTC,
+            "categorie" to transaction.categorie,
+            "accountId" to transaction.accountId,
+            FIELD_LAST_MODIFIED to System.currentTimeMillis(),
+            FIELD_DEVICE_ID to android.os.Build.MODEL
+        )
+        db.collection(COLLECTION_USERS)
+            .document(user.uid)
+            .collection(COLLECTION_TRANSACTIONS)
+            .document(transaction.id.toString())
+            .set(transactionData, SetOptions.merge())
+            .await()
     }
 
     // ==================== UPLOAD (Local → Cloud) ====================
 
     private suspend fun uploadTransactions(userId: String): Int {
         val localTransactions = transactionRepo.getAll().first()
-        var count = 0
-        
         for (transaction in localTransactions) {
-            try {
-                pushTransaction(transaction)
-                count++
-            } catch (e: Exception) {
-                // Continue avec les autres
-            }
+            pushTransaction(transaction)
         }
-        return count
+        return localTransactions.size
     }
 
     private suspend fun uploadAccounts(userId: String): Int {
@@ -255,37 +241,34 @@ class CloudSyncManager(
 
     // ==================== DOWNLOAD (Cloud → Local) ====================
 
-    private suspend fun downloadTransactions(userId: String): Int {
+    private suspend fun downloadTransactions(userId: String, accountIdMap: Map<Long, Long>): Int {
         return try {
             val snapshot = db.collection(COLLECTION_USERS)
                 .document(userId)
                 .collection(COLLECTION_TRANSACTIONS)
                 .get()
                 .await()
-            
+            val existingIds = transactionRepo.getAll().first().map { it.id }.toSet()
             var count = 0
             for (doc in snapshot.documents) {
-                // Vérifier si la transaction existe déjà en local
                 val id = doc.getLong("id") ?: continue
-                val existing = transactionRepo.getAll().first().find { it.id == id }
-                
-                if (existing == null) {
-                    // Transaction nouvelle → l'ajouter en local
-                    val transaction = Transaction(
-                        id = id,
-                        type = com.ledgernex.app.data.entity.TransactionType.valueOf(
-                            doc.getString("type") ?: "DEPENSE"
-                        ),
-                        dateEpoch = doc.getLong("dateEpoch") ?: LocalDate.now().toEpochDay(),
-                        libelle = doc.getString("libelle") ?: "",
-                        objet = doc.getString("objet") ?: "",
-                        montantTTC = doc.getDouble("montantTTC") ?: 0.0,
-                        categorie = doc.getString("categorie") ?: "Divers",
-                        accountId = doc.getLong("accountId") ?: 1L
-                    )
-                    transactionRepo.insert(transaction)
-                    count++
-                }
+                if (id in existingIds) continue
+                val cloudAccountId = doc.getLong("accountId") ?: 1L
+                val localAccountId = accountIdMap[cloudAccountId] ?: cloudAccountId
+                val transaction = Transaction(
+                    id = id,
+                    type = com.ledgernex.app.data.entity.TransactionType.valueOf(
+                        doc.getString("type") ?: "DEPENSE"
+                    ),
+                    dateEpoch = doc.getLong("dateEpoch") ?: LocalDate.now().toEpochDay(),
+                    libelle = doc.getString("libelle") ?: "",
+                    objet = doc.getString("objet") ?: "",
+                    montantTTC = doc.getDouble("montantTTC") ?: 0.0,
+                    categorie = doc.getString("categorie") ?: "Divers",
+                    accountId = localAccountId
+                )
+                transactionRepo.insert(transaction)
+                count++
             }
             count
         } catch (e: Exception) {
@@ -293,9 +276,44 @@ class CloudSyncManager(
         }
     }
 
-    private suspend fun downloadAccounts(userId: String): Int {
-        // Similar implementation for accounts
-        return 0 // Simplified
+    /**
+     * Télécharge les comptes du cloud. Retourne (nombre ajouté, map id_cloud -> id_local).
+     * Les ids locaux peuvent différer de ceux du cloud (Room auto-génère).
+     */
+    private suspend fun downloadAccounts(userId: String): Pair<Int, Map<Long, Long>> {
+        return try {
+            val existingAccounts = accountRepo.getAll().first()
+            val cloudIdToLocalId = existingAccounts.associate { it.id to it.id }.toMutableMap()
+            val snapshot = db.collection(COLLECTION_USERS)
+                .document(userId)
+                .collection(COLLECTION_ACCOUNTS)
+                .get()
+                .await()
+            var count = 0
+            for (doc in snapshot.documents) {
+                val cloudId = doc.getLong("id") ?: continue
+                if (cloudId in cloudIdToLocalId) continue
+                val typeStr = doc.getString("type") ?: "BANK"
+                val type = try {
+                    com.ledgernex.app.data.entity.AccountType.valueOf(typeStr)
+                } catch (_: Exception) {
+                    com.ledgernex.app.data.entity.AccountType.BANK
+                }
+                val account = CompanyAccount(
+                    id = 0,
+                    nom = doc.getString("nom") ?: "Compte",
+                    type = type,
+                    soldeInitial = doc.getDouble("soldeInitial") ?: 0.0,
+                    actif = doc.getBoolean("actif") ?: true
+                )
+                val localId = accountRepo.insert(account)
+                cloudIdToLocalId[cloudId] = localId
+                count++
+            }
+            Pair(count, cloudIdToLocalId)
+        } catch (e: Exception) {
+            Pair(0, emptyMap())
+        }
     }
 
     private suspend fun downloadAssets(userId: String): Int {

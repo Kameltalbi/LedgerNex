@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.ledgernex.app.data.export.CsvExportService
 import com.ledgernex.app.data.export.ExcelExportService
 import com.ledgernex.app.data.export.PdfExportService
 import com.ledgernex.app.domain.repository.AccountRepository
@@ -42,6 +43,7 @@ class ExportViewModel(
 
     private val pdfExportService = PdfExportService(context)
     private val excelExportService = ExcelExportService(context)
+    private val csvExportService = CsvExportService(context)
 
     fun exportBilanPdf() {
         viewModelScope.launch {
@@ -156,6 +158,25 @@ class ExportViewModel(
                 _state.value = ExportState(
                     isLoading = false,
                     errorMessage = "Erreur export Excel: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun exportTransactionsCsv() {
+        viewModelScope.launch {
+            _state.value = ExportState(isLoading = true)
+            try {
+                val transactions = transactionRepository.getAll().first()
+                val filePath = csvExportService.exportTransactions(transactions)
+                _state.value = ExportState(
+                    isLoading = false,
+                    successMessage = "CSV exporté vers: $filePath"
+                )
+            } catch (e: Exception) {
+                _state.value = ExportState(
+                    isLoading = false,
+                    errorMessage = "Erreur export CSV: ${e.message}"
                 )
             }
         }
